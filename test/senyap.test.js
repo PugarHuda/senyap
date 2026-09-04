@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Senyap, emptyPrivateState, deadSlot, bytes32, pureCircuits, stateDump, leHex } from './harness.js';
+import { Senyap, emptyPrivateState, deadSlot, bytes32, pureCircuits, stateDump, leHex,
+         termsOf, makerState, slotOf, takerState } from '../src/venue.js';
 
 // Public mid is 1000 with a 500 bps band, so a quote is only accepted in
 // [950, 1050]. The band is checked against a sealed price: the contract proves
@@ -13,28 +14,9 @@ const MAKERS = {
   C: { sk: bytes32(33), price: 1030n, maxSize:  50n, nonce: bytes32(103) },
 };
 
-const termsOf = (m, over = {}) => ({
-  price: m.price, maxSize: m.maxSize, expiry: EXPIRY,
-  makerId: pureCircuits.makerIdOf(m.sk), ...over,
-});
 
-const makerState = (m, over = {}) => ({
-  ...emptyPrivateState(),
-  makerSecret: m.sk,
-  quoteToPost: termsOf(m, over),
-  quoteNonce: m.nonce,
-});
 
-const slotOf = (m, over = {}) => ({
-  terms: termsOf(m, over), nonce: m.nonce, live: true,
-});
 
-const takerState = (book, size, limit, idx) => ({
-  ...emptyPrivateState(),
-  receivedQuotes: book,
-  takerOrder: [size, limit],
-  chosenIndex: idx,
-});
 
 // A live venue: three authorised makers, three sealed quotes on the ledger.
 async function venue() {

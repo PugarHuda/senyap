@@ -6,6 +6,8 @@
 
 Built for the Midnight Buildathon, Wave 1.
 
+![Senyap taker console](docs/screenshot.png)
+
 ---
 
 ## The problem
@@ -116,9 +118,14 @@ npm install
 npm run build   # compact compile src/senyap.compact src/managed/senyap
 npm test        # 22 tests
 npm run demo    # the end-to-end walkthrough
+
+npm run build:web && npm run dev   # the taker console
+npm run verify:web                 # drives the built page in real Chrome
 ```
 
 `npm run demo` prints the private side, the public ledger, a leak scan with its control, and the four refusals.
+
+The web console runs the same compiled circuits in the browser. Nothing on that page is validated in JavaScript first — when the UI says REFUSED, that string is the assert that failed inside the circuit. `npm run verify:web` drives it in headless Chrome and fails on any console error, because a successful `vite build` only proves the wasm bundled, not that it executes.
 
 ### Toolchain notes
 

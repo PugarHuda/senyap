@@ -8,9 +8,17 @@
   "scripts": {
     "build": "bash build.sh",
     "test": "node --test \"test/*.test.js\"",
-    "demo": "node cli/demo.js"
+    "demo": "node cli/demo.js",
+    "dev": "vite",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "verify:web": "node cli/verify-web.js"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.19.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.10.0",
+    "vite": "^8.2.2"
   }
 }

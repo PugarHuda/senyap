@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Senyap, emptyPrivateState, bytes32, pureCircuits } from './harness.js';
+import { Senyap, emptyPrivateState, bytes32, pureCircuits } from '../src/venue.js';
 
 test('deploys with an empty book', async () => {
   const s = await Senyap.deploy();

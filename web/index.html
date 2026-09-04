@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Senyap — sealed-quote RFQ on Midnight</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <h1>Senyap</h1>
+        <p class="tag">Sealed-quote RFQ on Midnight. The chain learns one price: the one that traded.</p>
+      </div>
+      <dl class="band" id="band">
+        <div><dt>reference mid</dt><dd id="mid">—</dd></div>
+        <div><dt>band</dt><dd id="bandBps">—</dd></div>
+        <div><dt>accepted</dt><dd id="range">—</dd></div>
+      </dl>
+    </header>
+
+    <p class="boot" id="boot">Compiling circuits into the page…</p>
+
+    <main hidden id="app">
+      <section class="panel private">
+        <h2><span class="dot"></span>Your desk <em>private</em></h2>
+        <p class="note">Openings the makers sent you off-chain. They never touch the chain, and the other makers never see them.</p>
+        <ul class="quotes" id="quotes"></ul>
+
+        <div class="order">
+          <label>size <input id="size" type="number" value="40" min="1" max="100" /></label>
+          <label>limit <input id="limit" type="number" value="1000" min="1" /></label>
+        </div>
+        <button class="fill" id="fill">Prove &amp; fill best quote</button>
+      </section>
+
+      <section class="panel public">
+        <h2><span class="dot"></span>Public ledger <em>on chain</em></h2>
+        <p class="note">Everything anyone else can see. Three commitments, no prices.</p>
+        <ul class="seals" id="seals"></ul>
+        <dl class="stats">
+          <div><dt>quotes live</dt><dd id="sQuotes">—</dd></div>
+          <div><dt>fills</dt><dd id="sFills">—</dd></div>
+          <div><dt>nullifiers</dt><dd id="sSpent">—</dd></div>
+          <div class="print"><dt>last print</dt><dd id="sPrint">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel attacks">
+        <h2><span class="dot"></span>Try to cheat it <em>the refusals are the product</em></h2>
+        <p class="note">Each button runs the real circuit. None of them is checked in JavaScript — the contract refuses them.</p>
+        <div class="grid" id="attacks"></div>
+      </section>
+    </main>
+
+    <div class="result" id="result" hidden><span class="verdict" id="verdict"></span><span class="reason" id="reason"></span></div>
+
+    <footer>
+      <a href="https://github.com/PugarHuda/senyap">source</a>
+      <span>Apache 2.0</span>
+      <span>Compact 0.34.0</span>
+      <span>Midnight Buildathon Wave 1</span>
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

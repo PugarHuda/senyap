@@ -8,7 +8,7 @@ import {
   createConstructorContext,
   sampleContractAddress,
 } from '@midnight-ntwrk/compact-runtime';
-import { Contract, ledger, pureCircuits } from '../src/managed/senyap/contract/index.js';
+import { Contract, ledger, pureCircuits } from './managed/senyap/contract/index.js';
 
 const COIN_PK = { bytes: new Uint8Array(32) };
 
@@ -88,5 +88,42 @@ export const leHex = (n) => {
   }
   return out;
 };
+
+// ---------------------------------------------------------------- desk shapes
+// A "maker" here is {sk, price, maxSize, nonce, expiry}. These four helpers were
+// copied into the tests, the CLI demo and the web app before being lifted here.
+
+export const DEFAULT_EXPIRY = 10n;
+
+export const termsOf = (m, over = {}) => ({
+  price: m.price,
+  maxSize: m.maxSize,
+  expiry: m.expiry ?? DEFAULT_EXPIRY,
+  makerId: pureCircuits.makerIdOf(m.sk),
+  ...over,
+});
+
+// What a maker holds locally when it seals a quote.
+export const makerState = (m, over = {}) => ({
+  ...emptyPrivateState(),
+  makerSecret: m.sk,
+  quoteToPost: termsOf(m, over),
+  quoteNonce: m.nonce,
+});
+
+// One opening in the taker's book.
+export const slotOf = (m, over = {}) => ({
+  terms: termsOf(m, over),
+  nonce: m.nonce,
+  live: true,
+});
+
+// What a taker holds locally when it fills.
+export const takerState = (book, size, limit, idx) => ({
+  ...emptyPrivateState(),
+  receivedQuotes: book,
+  takerOrder: [size, limit],
+  chosenIndex: idx,
+});
 
 export { pureCircuits };

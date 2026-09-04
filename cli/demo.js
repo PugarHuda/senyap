@@ -7,15 +7,8 @@
 // PUBLIC LEDGER is what the chain actually holds. Two of the three prices never
 // cross that line, and the refusals at the end are enforced by the circuit, not
 // by this script.
-import {
-  Senyap,
-  emptyPrivateState,
-  deadSlot,
-  bytes32,
-  pureCircuits,
-  stateDump,
-  leHex,
-} from '../test/harness.js';
+import { Senyap, emptyPrivateState, deadSlot, bytes32, pureCircuits, stateDump, leHex,
+         termsOf, makerState, slotOf, takerState } from '../src/venue.js';
 
 const MID = 1000n, BAND = 500n, EXPIRY = 10n;
 
@@ -27,24 +20,9 @@ const MAKERS = {
 
 const TAKER = { size: 40n, limit: 1000n };
 
-const termsOf = (m, over = {}) => ({
-  price: m.price, maxSize: m.maxSize, expiry: EXPIRY,
-  makerId: pureCircuits.makerIdOf(m.sk), ...over,
-});
 
-const makerState = (m, over = {}) => ({
-  ...emptyPrivateState(),
-  makerSecret: m.sk,
-  quoteToPost: termsOf(m, over),
-  quoteNonce: m.nonce,
-});
 
-const slotOf = (m, over = {}) => ({ terms: termsOf(m, over), nonce: m.nonce, live: true });
 
-const takerState = (book, size, limit, idx) => ({
-  ...emptyPrivateState(),
-  receivedQuotes: book, takerOrder: [size, limit], chosenIndex: idx,
-});
 
 const hex = (u8) => Buffer.from(u8).toString('hex');
 const short = (u8) => `${hex(u8).slice(0, 8)}...${hex(u8).slice(-4)}`;
