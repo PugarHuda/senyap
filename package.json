@@ -15,7 +15,7 @@
     "verify:web": "node cli/verify-web.js"
   },
   "dependencies": {
-    "@midnight-ntwrk/compact-runtime": "0.19.0"
+    "@midnight-ntwrk/compact-runtime": "0.16.0"
   },
   "devDependencies": {
     "puppeteer-core": "^25.10.0",

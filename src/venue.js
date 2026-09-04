@@ -48,7 +48,7 @@ export class Senyap {
     const s = new Senyap();
     s.contract = new Contract(witnesses);
     s.address = sampleContractAddress();
-    const init = await s.contract.initialState(
+    const init = s.contract.initialState(
       createConstructorContext(emptyPrivateState(), COIN_PK),
     );
     s.state = init.currentContractState;
@@ -59,11 +59,12 @@ export class Senyap {
   // a vault, which is the whole point: the maker's price is not reachable from
   // the taker's process, and vice versa.
   async call(circuit, privateState, ...args) {
-    const ctx = createCircuitContext(
-      circuit, this.address, COIN_PK, this.state, privateState,
-    );
-    const res = await this.contract.impureCircuits[circuit](ctx, ...args);
-    this.state = res.context.callContext.currentQueryContext.state;
+    // compact-runtime 0.16 takes no circuitId, runs circuits synchronously, and
+    // returns a flat context. call() stays async so callers and assert.rejects
+    // do not have to care which runtime is underneath.
+    const ctx = createCircuitContext(this.address, COIN_PK, this.state, privateState);
+    const res = this.contract.impureCircuits[circuit](ctx, ...args);
+    this.state = res.context.currentQueryContext.state;
     return res.result;
   }
 

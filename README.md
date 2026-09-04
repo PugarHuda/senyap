@@ -129,10 +129,40 @@ The web console runs the same compiled circuits in the browser. Nothing on that 
 
 ### Toolchain notes
 
-Measured on this build, since both cost time to find:
+The version matrix cost real time to work out, so here it is.
 
-- Compiler **0.34.0** pairs with `@midnight-ntwrk/compact-runtime` **0.19.0**. The compiler writes its expected `runtime-version` into `src/managed/senyap/compiler/contract-info.json`; match it there rather than guessing. This toolchain resolves `onchain-runtime-v4`, so the `v3` version clash reported by other Buildathon teams does not apply here.
-- Ubuntu 26.04 minimal ships without `unzip`, and `compact update` fails with `Failed to spawn artifact extraction command` — an error that never mentions the missing binary. `sudo apt install -y unzip` fixes it.
+The compiler you get by default is not the one that deploys. `compact update`
+installs the newest compiler — 0.34.0 at the time of writing — and that emits
+`runtime-version` 0.19.0, which resolves `onchain-runtime-v4` and ledger v9. The
+only `midnight-js` that speaks v4 is `5.0.0-beta.7`, and the only wallet SDK
+that pairs with it is canary-tagged. That is two layers of pre-release under a
+deploy.
+
+The stable line is entirely v8:
+
+| | version | pulls |
+| --- | --- | --- |
+| Compact compiler | **0.31.1** | runtime 0.16.0 |
+| `@midnight-ntwrk/compact-runtime` | **0.16.0** | `onchain-runtime-v3` |
+| `@midnight-ntwrk/midnight-js` | **4.1.1** | ledger-v8, compact-runtime 0.16.0 |
+| `@midnight-ntwrk/wallet-sdk-facade` | **4.0.1** | ledger-v8 |
+
+This build is pinned to that line. The contract compiles under both compilers
+with no source change at all, so the pin lives in `build.sh` rather than in the
+`.compact` file.
+
+Two API differences bite when moving between them, and neither is mentioned in
+an error message:
+
+- `createCircuitContext` takes a `circuitId` first argument in 0.19 and does not
+  in 0.16. Pass the 0.19 argument list to 0.16 and everything shifts one place,
+  surfacing as `'contractState' parameter [object Object] has unexpected type`.
+- Circuits are `async` in 0.19 and synchronous in 0.16. The context they return
+  is nested under `callContext` in 0.19 and flat in 0.16.
+
+Also worth knowing: Ubuntu 26.04 minimal ships without `unzip`, and
+`compact update` then fails with `Failed to spawn artifact extraction command`,
+an error that never names the missing binary. `sudo apt install -y unzip`.
 
 ## Test coverage
 
