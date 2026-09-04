@@ -1,0 +1,183 @@
+pragma language_version >= 0.17;
+
+import CompactStandardLibrary;
+
+// Senyap - sealed-quote RFQ / private OTC on Midnight.
+//
+// Dual-ledger split:
+//   PUBLIC  : quote commitments, nullifiers, authorised makers, fill count,
+//             reference price + band, and the winning print.
+//   PRIVATE : every quote price and size, the maker's inventory, the taker's
+//             order size and limit price. None of it ever reaches the chain.
+//
+// Flow: a maker posts a sealed commitment on-chain and hands the opening to the
+// taker off-chain. The commitment binds the maker, so the quote cannot be faded
+// after the taker accepts (no "last look"). The taker then proves, in circuit,
+// that the quote it consumed was the best of the ones it received.
+
+// ---------------------------------------------------------------- public state
+
+export ledger makers: Set<Bytes<32>>;   // authorised maker ids
+export ledger quotes: Set<Bytes<32>>;   // live sealed quote commitments
+export ledger spent: Set<Bytes<32>>;    // nullifiers of consumed quotes
+export ledger fills: Counter;           // number of executed fills
+
+export ledger referencePrice: Uint<64>; // public mid, in ticks
+export ledger bandBps: Uint<64>;        // max deviation from mid, in bps
+export ledger lastFillPrice: Uint<64>;  // the print: only the winner is published
+export ledger epoch: Uint<64>;          // expiry clock
+
+// ponytail: `epoch` is advanced by tick(). A production build reads block time
+// instead; the clock is not the part of the design under test here.
+
+// ---------------------------------------------------------------------- types
+
+export struct QuoteTerms {
+  price: Uint<64>,
+  maxSize: Uint<64>,
+  expiry: Uint<64>,
+  makerId: Bytes<32>,
+}
+
+// One slot of the taker's private quote book. `live` marks a real quote; the
+// remaining slots are padding and must never be selectable.
+export struct QuoteSlot {
+  terms: QuoteTerms,
+  nonce: Bytes<32>,
+  live: Boolean,
+}
+
+// ------------------------------------------------------------------ witnesses
+
+witness makerSecret(): Bytes<32>;
+witness quoteToPost(): QuoteTerms;
+witness quoteNonce(): Bytes<32>;
+witness takerOrder(): [Uint<64>, Uint<64>];      // [size, limitPrice]
+witness receivedQuotes(): Vector<3, QuoteSlot>;  // the taker's private book
+witness chosenIndex(): Uint<8>;
+
+// ------------------------------------------------------------------- helpers
+
+export pure circuit makerIdOf(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "senyap:maker:v1"), sk]);
+}
+
+export pure circuit commitmentOf(t: QuoteTerms, nonce: Bytes<32>): Bytes<32> {
+  return persistentCommit<QuoteTerms>(t, nonce);
+}
+
+// Domain-separated so a commitment can never be replayed as some other digest.
+export pure circuit nullifierOf(c: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "senyap:nullifier:v1"), c]);
+}
+
+// A padding slot prices at the Uint<64> ceiling so it can never win the min.
+export pure circuit effectivePrice(s: QuoteSlot): Uint<64> {
+  return s.live ? s.terms.price : 18446744073709551615;
+}
+
+export pure circuit min2(a: Uint<64>, b: Uint<64>): Uint<64> {
+  return a < b ? a : b;
+}
+
+// ------------------------------------------------------------------- circuits
+
+export circuit registerMaker(id: Bytes<32>): [] {
+  // ponytail: open registration for the demo. Real deployments gate this behind
+  // the governance key; that is orthogonal to the privacy claim being proven.
+  makers.insert(disclose(id));
+}
+
+export circuit tick(): [] {
+  epoch = (epoch + 1) as Uint<64>;
+}
+
+export circuit setReference(price: Uint<64>, band: Uint<64>): [] {
+  assert(price > 0, "reference price must be positive");
+  referencePrice = disclose(price);
+  bandBps = disclose(band);
+}
+
+// A maker seals a quote. The price never leaves the maker's machine: the band
+// check proves the quote is honest relative to the public mid without
+// publishing it.
+export circuit postQuote(): Bytes<32> {
+  const sk = makerSecret();
+  const id = makerIdOf(sk);
+  assert(makers.member(disclose(id)), "maker is not authorised");
+
+  const t = quoteToPost();
+  assert(t.makerId == id, "quote is not bound to this maker");
+  assert(t.price > 0, "price must be positive");
+  assert(t.maxSize > 0, "size must be positive");
+  assert(t.expiry > epoch, "quote is already expired");
+
+  // |price - mid| * 10000 <= mid * bandBps, in multiplication form.
+  // No division anywhere in this contract: a division would either need a
+  // non-zero proof or silently truncate, and both are soundness bugs.
+  const mid = referencePrice;
+  const dev = t.price > mid ? t.price - mid : mid - t.price;
+  assert(dev * 10000 <= mid * bandBps, "quote is outside the public band");
+
+  const c = commitmentOf(t, quoteNonce());
+  assert(!quotes.member(disclose(c)), "quote already posted");
+  quotes.insert(disclose(c));
+  return disclose(c);
+}
+
+// The taker consumes one quote and proves it was the best one it held.
+export circuit takeQuote(): [] {
+  const book = receivedQuotes();
+  const [size, limitPrice] = takerOrder();
+  const idx = chosenIndex();
+  assert(idx < 3, "chosen index out of range");
+
+  // Every live slot must correspond to a commitment that really is on the
+  // ledger. Without this the taker could invent worse quotes and manufacture a
+  // best-execution proof against fictional competition.
+  // The lookups are unconditional on purpose. Writing this as
+  // `!live || quotes.member(...)` lets short-circuit evaluation skip the ledger
+  // read for padding slots, and whether the read happens is itself observable -
+  // the compiler's disclosure analysis rejects it, correctly. Doing all three
+  // reads every time keeps the number of real quotes out of the trace.
+  const onLedger0 = quotes.member(disclose(commitmentOf(book[0].terms, book[0].nonce)));
+  const onLedger1 = quotes.member(disclose(commitmentOf(book[1].terms, book[1].nonce)));
+  const onLedger2 = quotes.member(disclose(commitmentOf(book[2].terms, book[2].nonce)));
+  assert(!book[0].live || onLedger0, "slot 0 is not a live on-chain quote");
+  assert(!book[1].live || onLedger1, "slot 1 is not a live on-chain quote");
+  assert(!book[2].live || onLedger2, "slot 2 is not a live on-chain quote");
+
+  const best = min2(min2(effectivePrice(book[0]), effectivePrice(book[1])), effectivePrice(book[2]));
+
+  // Private index selection has to be a mux: a ZK circuit cannot index by a
+  // secret. With a fixed book of three this is cheaper than a loop anyway.
+  const q = idx == 0 ? book[0] : (idx == 1 ? book[1] : book[2]);
+
+  assert(q.live, "chosen slot is empty");
+  assert(q.terms.price == best, "not best execution");
+  assert(q.terms.price <= limitPrice, "fill is worse than the taker's limit");
+  assert(q.terms.maxSize >= size, "quote does not cover the taker's size");
+  assert(q.terms.expiry > epoch, "quote has expired");
+
+  const c = commitmentOf(q.terms, q.nonce);
+  const nf = nullifierOf(c);
+  assert(!spent.member(disclose(nf)), "quote has already been filled");
+
+  spent.insert(disclose(nf));
+  quotes.remove(disclose(c));
+  fills.increment(1);
+
+  // The only price that ever becomes public is the one that traded.
+  lastFillPrice = disclose(q.terms.price);
+}
+
+// A maker withdraws its own quote. Ownership is proved, not asserted.
+export circuit cancelQuote(): [] {
+  const sk = makerSecret();
+  const t = quoteToPost();
+  assert(t.makerId == makerIdOf(sk), "not the maker of this quote");
+
+  const c = commitmentOf(t, quoteNonce());
+  assert(quotes.member(disclose(c)), "quote is not live");
+  quotes.remove(disclose(c));
+}

@@ -1,0 +1,16 @@
+{
+  "name": "senyap",
+  "version": "0.1.0",
+  "description": "Sealed-quote RFQ / private OTC on Midnight. Makers commit binding quotes, takers prove best execution, and losing prices are never published.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bash build.sh",
+    "test": "node --test \"test/*.test.js\"",
+    "demo": "node cli/demo.js"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.19.0"
+  }
+}
