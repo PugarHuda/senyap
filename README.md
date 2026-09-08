@@ -127,6 +127,60 @@ npm run verify:web                 # drives the built page in real Chrome
 
 The web console runs the same compiled circuits in the browser. Nothing on that page is validated in JavaScript first — when the UI says REFUSED, that string is the assert that failed inside the circuit. `npm run verify:web` drives it in headless Chrome and fails on any console error, because a successful `vite build` only proves the wasm bundled, not that it executes.
 
+### Deploying
+
+`npm run deploy` puts the contract on a real network. It defaults to preprod
+and takes everything else from the environment:
+
+| variable | default |
+| --- | --- |
+| `MIDNIGHT_SEED` | whatever is in `.wallet/<network>.seed`, generated on first run |
+| `MIDNIGHT_NETWORK` | `preprod` |
+| `MIDNIGHT_INDEXER` | `https://indexer.preprod.midnight.network/api/v4/graphql` |
+| `MIDNIGHT_NODE` | `wss://rpc.preprod.midnight.network` |
+| `MIDNIGHT_PROOF_SERVER` | `http://127.0.0.1:6300` |
+
+Three things have to be true before it can work, and none of them are code.
+
+**A proof server is running.** Proving happens on your machine, not on the node.
+
+```bash
+docker run -p 6300:6300 midnightntwrk/proof-server:8.1.0 midnight-proof-server -v
+```
+
+**The wallet holds NIGHT.** The preprod faucet is at
+<https://midnight-tmnight-preprod.nethermind.dev/> and sends 1,000 tNIGHT per
+request, behind a Cloudflare Turnstile check, so this step is a human with a
+browser. `npm run deploy` prints the Night address before it does anything
+slow, and stops if the balance is zero.
+
+**That NIGHT is registered for DUST generation.** Fees are paid in DUST, which
+NIGHT only generates after an explicit on-chain registration of its UTXOs. A
+funded but unregistered wallet cannot pay for anything.
+
+The circularity here is only apparent — a registration transaction costs a fee
+the wallet cannot yet pay — and the resolution is worth stating: unregistered
+NIGHT still accrues *projected* dust from the moment it lands. So the deploy
+estimates the registration fee, waits for the projection to cover it, submits
+the registration, and tells you to come back once DUST has actually accrued.
+It does this automatically rather than failing somewhere inside transaction
+balancing with a message about coin selection.
+
+Sync is the slow part, and worth describing because the numbers are not
+obvious. The three sub-wallets — shielded, unshielded, dust — scan the chain
+independently and `isSynced` is the AND of all three, so the run prints each
+one's progress rather than sitting silent. Preprod is about 1.5M events deep.
+The shielded wallet applies them in a couple of minutes; the dust wallet
+manages roughly 16k a minute, which is an hour and a half. Raising the sync
+batch size from its default of 10 helps the shielded side a great deal and the
+dust side barely at all, so the fix is not to do it twice: after a cold sync
+every sub-wallet's state is serialised into `.wallet/`, and later runs restore
+and catch up instead. Long syncs also checkpoint every five minutes, because
+losing ninety minutes to a dropped socket is worse than writing a file.
+
+Nothing is balanced until all three are complete: a half-synced wallet picks
+coins that were already spent.
+
 ### Toolchain notes
 
 The version matrix cost real time to work out, so here it is.
@@ -145,7 +199,12 @@ The stable line is entirely v8:
 | Compact compiler | **0.31.1** | runtime 0.16.0 |
 | `@midnight-ntwrk/compact-runtime` | **0.16.0** | `onchain-runtime-v3` |
 | `@midnight-ntwrk/midnight-js` | **4.1.1** | ledger-v8, compact-runtime 0.16.0 |
-| `@midnight-ntwrk/wallet-sdk-facade` | **4.0.1** | ledger-v8 |
+| `@midnight-ntwrk/wallet-sdk` | **1.2.0** | wallet-sdk-facade 4.1.0, ledger-v8 |
+
+The four provider packages — `midnight-js-indexer-public-data-provider`,
+`-http-client-proof-provider`, `-node-zk-config-provider` and
+`-level-private-state-provider` — are versioned in lockstep with `midnight-js`
+and are all pinned to 4.1.1 as well.
 
 This build is pinned to that line. The contract compiles under both compilers
 with no source change at all, so the pin lives in `build.sh` rather than in the
@@ -184,7 +243,7 @@ primitives      3   commitment binding, nullifier domain separation, padding pri
 - **The book is three slots.** ZK circuits need fixed bounds. Widening it is a constant, not a redesign.
 - **Settlement is not custody.** Senyap proves a match is valid and binding. It does not move assets. This is a price-discovery layer, not a DEX.
 - **`registerMaker` is open and `tick` is manual.** Both are demo scaffolding, marked in the source. Neither is load-bearing for the privacy claim.
-- **Not yet deployed to preprod.** Everything above runs against the compiled circuits in the local simulator.
+- **Not yet deployed to preprod.** The deploy path is written and wired to the real preprod node and indexer, but no contract is on chain yet: it is waiting on a funded wallet with DUST registered. Everything above runs against the compiled circuits in the local simulator.
 
 ## Named deltas for Wave 2
 

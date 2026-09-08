@@ -12,7 +12,7 @@ import { Contract, ledger, pureCircuits } from './managed/senyap/contract/index.
 
 const COIN_PK = { bytes: new Uint8Array(32) };
 
-const witnesses = {
+export const witnesses = {
   makerSecret:    (ctx) => [ctx.privateState, ctx.privateState.makerSecret],
   quoteToPost:    (ctx) => [ctx.privateState, ctx.privateState.quoteToPost],
   quoteNonce:     (ctx) => [ctx.privateState, ctx.privateState.quoteNonce],
