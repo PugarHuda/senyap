@@ -175,8 +175,18 @@ manages roughly 16k a minute, which is an hour and a half. Raising the sync
 batch size from its default of 10 helps the shielded side a great deal and the
 dust side barely at all, so the fix is not to do it twice: after a cold sync
 every sub-wallet's state is serialised into `.wallet/`, and later runs restore
-and catch up instead. Long syncs also checkpoint every five minutes, because
-losing ninety minutes to a dropped socket is worse than writing a file.
+and catch up instead. Long syncs also checkpoint every five minutes.
+
+That checkpoint is not a nicety. On a 16GB machine the cold sync does not
+finish in one process: the wallet grows as it applies events and the run is
+killed for memory somewhere past the million mark, repeatedly. Capping the V8
+heap does not help, because the ledger's wasm memory is not part of it.
+Shrinking the indexer's in-flight event queue from its default of 10,000 does
+help, and helps throughput too — less garbage, less collection — but the run
+still dies. What actually gets you to a synced wallet is running `npm run
+deploy` again: each attempt advances a couple of hundred thousand events and
+checkpoints them, so the sync completes across several processes rather than
+one. Restarting is the design, not a workaround.
 
 Nothing is balanced until all three are complete: a half-synced wallet picks
 coins that were already spent.

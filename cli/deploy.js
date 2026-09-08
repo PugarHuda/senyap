@@ -117,11 +117,21 @@ const progress = (name, p) =>
 const startWallet = async ({ shieldedSecretKeys, dustSecretKey, unshieldedKeystore }) => {
   const configuration = {
     networkId: NETWORK,
-    indexerClientConnection: { indexerHttpUrl: INDEXER, indexerWsUrl: INDEXER_WS },
-    // The defaults are 10 events per batch with 4ms of spacing between them,
-    // which is fine for a live wallet and hopeless for a first sync: preprod is
-    // 1.5M events deep and the dust wallet crawls it at ~11k/min.
-    batchUpdates: { size: 1000, timeout: 100, spacing: 0 },
+    indexerClientConnection: {
+      indexerHttpUrl: INDEXER,
+      indexerWsUrl: INDEXER_WS,
+      // The default lets 10,000 events sit in flight between the socket and the
+      // apply loop. The dust wallet applies far slower than the indexer pushes,
+      // so that queue stays full and every event in it is a live object — which
+      // is how a cold sync ends as an OOM rather than a wait.
+      bufferSize: 250,
+      resumeThreshold: 25,
+    },
+    // The default is 10 events per batch with 4ms of spacing, which is fine for
+    // a live wallet and slow for a 1.5M-event backfill. Bigger batches help the
+    // shielded wallet a lot and the dust wallet barely, so this is only as big
+    // as memory allows rather than as big as possible.
+    batchUpdates: { size: 100, timeout: 100, spacing: 0 },
     relayURL: new URL(NODE),
     provingServerUrl: new URL(PROOF_SERVER),
     // ponytail: in-memory history, so every run re-reads the chain. A durable
