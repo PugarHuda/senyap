@@ -13,7 +13,8 @@
     "build:web": "vite build",
     "preview": "vite preview",
     "verify:web": "node cli/verify-web.js",
-    "deploy": "node cli/deploy.js"
+    "deploy": "node cli/deploy.js",
+    "live": "node cli/live.js"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0",
@@ -33,6 +34,7 @@
     "vite": "^8.2.2"
   },
   "overrides": {
-    "@midnight-ntwrk/ledger-v8": "$@midnight-ntwrk/ledger-v8"
+    "@midnight-ntwrk/ledger-v8": "$@midnight-ntwrk/ledger-v8",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0"
   }
 }
