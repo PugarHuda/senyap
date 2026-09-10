@@ -3,3 +3,4 @@ src/managed/
 *.log
 .env
 .wallet/
+midnight-level-db/

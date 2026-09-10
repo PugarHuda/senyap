@@ -9,10 +9,13 @@
 //   a proof server        docker run -p 6300:6300 midnightntwrk/proof-server:8.1.0
 //   NIGHT registered for dust generation, so the deploy can pay its fee
 import { randomBytes } from 'node:crypto';
+import { inspect } from 'node:util';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as Rx from 'rxjs';
+import { ApiPromise, WsProvider } from '@polkadot/api';
+import { u8aToHex } from '@polkadot/util';
 import * as ledger from '@midnight-ntwrk/ledger-v8';
 import {
   DustWallet,
@@ -32,6 +35,7 @@ import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-pri
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
+import { sampleContractAddress } from '@midnight-ntwrk/compact-runtime';
 import { Contract } from '../src/managed/senyap/contract/index.js';
 import { emptyPrivateState, witnesses } from '../src/venue.js';
 
@@ -48,7 +52,10 @@ const INDEXER_WS = INDEXER.replace(/^http/, 'ws') + '/ws';
 const SEED_FILE = resolve(root, `.wallet/${NETWORK}.seed`);
 const CACHE_FILE = resolve(root, `.wallet/${NETWORK}.state.json`);
 
-const NIGHT = ledger.nativeToken();
+// nativeToken() is {tag, raw}; the balance and UTXO maps are keyed by the raw
+// hex alone. Indexing them with the object reads undefined, which looks exactly
+// like an unfunded wallet.
+const NIGHT = ledger.nativeToken().raw;
 
 const die = (msg) => {
   console.error(`\n${msg}\n`);
@@ -57,7 +64,7 @@ const die = (msg) => {
 
 // The seed has to survive between runs or the funded wallet is a different
 // wallet next time. MIDNIGHT_SEED wins; otherwise .wallet/ holds one.
-const seedBytes = () => {
+const seedHex = () => {
   let hex = (process.env.MIDNIGHT_SEED ?? '').trim().replace(/^0x/, '');
   if (!hex && existsSync(SEED_FILE)) hex = readFileSync(SEED_FILE, 'utf8').trim();
   if (!hex) {
@@ -69,7 +76,7 @@ const seedBytes = () => {
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
     die(`A wallet seed must be 64 hex characters. Got ${hex.length} characters.`);
   }
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
+  return hex;
 };
 
 // Preprod is 1.5M events deep and the dust wallet applies them at roughly
@@ -109,10 +116,54 @@ const deriveKeys = (seed) => {
 };
 
 // Three sub-wallets sync independently and isSynced is the AND of all three, so
-// a stall is only diagnosable per wallet.
-// Completeness is appliedIndex vs highestRelevantWalletIndex, not highestIndex.
-const progress = (name, p) =>
-  `${name} ${p.appliedIndex}/${p.highestRelevantWalletIndex}${p.isConnected ? '' : ' (offline)'}`;
+// a stall is only diagnosable per wallet. Completeness is appliedIndex against
+// highestRelevantWalletIndex, not highestIndex, which reads 0 throughout.
+//
+// The unshielded wallet reports a different shape - appliedId and
+// highestTransactionId - and its completeness check reads the fields it does
+// not have. |undefined - undefined| is 0, so it calls itself complete the
+// moment it connects, and isSynced never really waits for it.
+const progress = (name, p) => {
+  const applied = p.appliedIndex ?? p.appliedId;
+  const highest = p.highestRelevantWalletIndex ?? p.highestTransactionId;
+  return `${name} ${applied}/${highest}${p.isConnected ? '' : ' (offline)'}`;
+};
+
+// The SDK's own node client closes its websocket after loading metadata and
+// reopens one per operation. Against preprod that dance loses: .send() rejects
+// with "disconnected ... 1000:: Normal Closure" and nothing reaches the chain -
+// deterministically, on every attempt. One connection held open submits fine,
+// so the facade gets this instead of the default.
+const makeSubmissionService = async () => {
+  const api = await ApiPromise.create({
+    provider: new WsProvider(NODE, 2000),
+    noInitWarn: true,
+    throwOnConnect: false,
+  });
+  return {
+    submitTransaction: (tx, waitFor = 'InBlock') =>
+      new Promise((resolve, reject) => {
+        api.tx.midnight
+          .sendMnTransaction(u8aToHex(tx.serialize()))
+          .send((result) => {
+            const s = result.status;
+            if (s.isInvalid || s.isDropped || s.isUsurped) {
+              reject(new Error(`the node reported the transaction ${s.type}`));
+              return;
+            }
+            const reached =
+              waitFor === 'Finalized'
+                ? s.isFinalized
+                : waitFor === 'Submitted'
+                  ? s.isReady || s.isBroadcast
+                  : s.isInBlock || s.isFinalized;
+            if (reached) resolve({ _tag: waitFor, tx, txHash: result.txHash.toString() });
+          })
+          .catch(reject);
+      }),
+    close: () => api.disconnect(),
+  };
+};
 
 const startWallet = async ({ shieldedSecretKeys, dustSecretKey, unshieldedKeystore }) => {
   const configuration = {
@@ -145,6 +196,7 @@ const startWallet = async ({ shieldedSecretKeys, dustSecretKey, unshieldedKeysto
 
   const facade = await WalletFacade.init({
     configuration,
+    submissionService: () => makeSubmissionService(),
     shielded: (c) =>
       cache.shielded
         ? ShieldedWallet(c).restore(cache.shielded)
@@ -207,22 +259,29 @@ const registerDust = async (facade, state, keys) => {
   );
   if (nightUtxos.length === 0) die('No unregistered NIGHT UTXOs to register.');
 
+  // Every step here is minutes long and silent on its own, so each one says so.
+  const step = (msg) => console.log(`  ${new Date().toISOString().slice(11, 19)} ${msg}`);
+
   const { fee } = await facade.estimateRegistration(nightUtxos);
   console.log(`registering ${nightUtxos.length} NIGHT utxo(s), fee ${fee}`);
+  step('waiting for projected dust to cover the fee');
   await facade.waitForGeneratedDust(nightUtxos, fee, { timeoutMs: 1_800_000 });
 
-  const { unshieldedKeystore, shieldedSecretKeys, dustSecretKey } = keys;
+  const { unshieldedKeystore } = keys;
+  step('building the registration transaction');
   const recipe = await facade.registerNightUtxosForDustGeneration(
     nightUtxos,
     unshieldedKeystore.getPublicKey(),
     (payload) => unshieldedKeystore.signData(payload),
   );
-  const balanced = await facade.balanceUnprovenTransaction(
-    recipe.transaction,
-    { shieldedSecretKeys, dustSecretKey },
-    { ttl: new Date(Date.now() + 3_600_000) },
-  );
-  const txId = await facade.submitTransaction(await facade.finalizeRecipe(balanced));
+  // Not balanced on purpose. A registration pays its own fee out of the dust
+  // its UTXOs have already generated, so asking the wallet to balance it means
+  // asking for DUST that only exists after this transaction lands — and the
+  // balancer waits for it rather than failing.
+  step('proving');
+  const finalized = await facade.finalizeRecipe(recipe);
+  step('submitting');
+  const txId = await facade.submitTransaction(finalized);
   console.log(`registration submitted, tx ${txId}`);
 };
 
@@ -255,7 +314,8 @@ class FacadeProvider {
 const main = async () => {
   setNetworkId(NETWORK);
 
-  const keys = deriveKeys(seedBytes());
+  const seed = seedHex();
+  const keys = deriveKeys(Uint8Array.from(Buffer.from(seed, 'hex')));
   // The address comes straight out of the keystore, so it is printable before
   // the long sync rather than after it. Funding can start immediately.
   const nightAddress = keys.unshieldedKeystore.getBech32Address().asString();
@@ -287,7 +347,10 @@ const main = async () => {
     privateStateProvider: levelPrivateStateProvider({
       privateStateStoreName: 'senyap-private-state',
       signingKeyStoreName: 'senyap-signing-keys',
-      privateStoragePasswordProvider: () => process.env.MIDNIGHT_SEED,
+      // Derived from the seed, not the env var, which is usually empty because
+      // the seed lives in .wallet/. The prefix is not decoration: the store
+      // demands three of four character classes and hex is only two.
+      privateStoragePasswordProvider: () => `Senyap!${seed}`,
       accountId: nightAddress,
     }),
     publicDataProvider: indexerPublicDataProvider(INDEXER, INDEXER_WS),
@@ -301,6 +364,14 @@ const main = async () => {
     CompiledContract.withWitnesses(CompiledContract.make('senyap', Contract), witnesses),
     managed,
   );
+
+  // deployContract writes the private state only after the deploy transaction
+  // has succeeded on chain, so a private-state store that rejects its password
+  // throws once the contract already exists and its address is gone with the
+  // exception. Two contracts were lost that way. Prove the store works first.
+  providers.privateStateProvider.setContractAddress(sampleContractAddress());
+  await providers.privateStateProvider.set('senyap-preflight', emptyPrivateState());
+  await providers.privateStateProvider.remove('senyap-preflight');
 
   console.log('proving and submitting the deploy transaction...');
   const deployed = await deployContract(providers, {
@@ -319,4 +390,22 @@ const main = async () => {
   await facade.stop();
 };
 
-main().catch((e) => die(e?.stack ?? String(e)));
+// The SDK wraps failures in tagged errors whose own message is a category, not
+// a reason: "Transaction submission error" tells you nothing without the cause
+// underneath it.
+const explain = (e, depth = 0) => {
+  if (!e || depth > 5) return '';
+  const head = e.message ?? String(e);
+  const extra = Object.entries(e)
+    .filter(([k, v]) => k !== 'cause' && k !== 'stack' && typeof v !== 'function')
+    .map(([k, v]) => `  ${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+    .join('\n');
+  return [head, extra, explain(e.cause, depth + 1)].filter(Boolean).join('\n');
+};
+
+// Effect rethrows as a FiberFailure that keeps the real cause on a symbol, so
+// the cause chain alone comes back empty. inspect() is the only thing that sees
+// all of it.
+const explainDeep = (e) => inspect(e, { depth: 8, showHidden: true, colors: false });
+
+main().catch((e) => die(`${explain(e)}\n\n${explainDeep(e)}`));

@@ -127,6 +127,24 @@ npm run verify:web                 # drives the built page in real Chrome
 
 The web console runs the same compiled circuits in the browser. Nothing on that page is validated in JavaScript first — when the UI says REFUSED, that string is the assert that failed inside the circuit. `npm run verify:web` drives it in headless Chrome and fails on any console error, because a successful `vite build` only proves the wasm bundled, not that it executes.
 
+### On chain
+
+Senyap is deployed to Midnight preprod.
+
+| | |
+| --- | --- |
+| Contract | `da83d09624374ce3495765795c987aa68512ef47263b17ef9d1cb618883dba77` |
+| Deploy tx | `88f81d49bb21c7918f05c176a353f4bfa7c8014ac6b9730429b089a0e36706d8` |
+| Block | 2,488,541 |
+
+Confirm it independently, without trusting anything in this repo:
+
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"query":"{contractAction(address:\"da83d09624374ce3495765795c987aa68512ef47263b17ef9d1cb618883dba77\"){__typename address transaction{hash block{height}}}}"}' \
+  https://indexer.preprod.midnight.network/api/v4/graphql
+```
+
 ### Deploying
 
 `npm run deploy` puts the contract on a real network. It defaults to preprod
@@ -191,6 +209,27 @@ one. Restarting is the design, not a workaround.
 Nothing is balanced until all three are complete: a half-synced wallet picks
 coins that were already spent.
 
+Two things in `cli/deploy.js` are not the documented way to do it, and both are
+there because the documented way does not work.
+
+**The facade gets its own submission service.** The SDK's node client closes its
+websocket after loading metadata and reopens one per operation. Against preprod
+that dance loses the race: `.send()` rejects with `disconnected … 1000:: Normal
+Closure` and nothing reaches the chain, deterministically, on every attempt.
+The node itself is fine — a plain `WsProvider` connects, reports `Midnight
+Preprod`, and stays up. So the facade is handed a submission service that holds
+one connection open, and the same transaction that failed six times went
+`Ready → Broadcast → InBlock` on the first try.
+
+**The private state store is proved to work before anything is submitted.**
+`deployContract` writes private state only *after* the deploy transaction has
+succeeded, so a store that rejects its password throws when the contract
+already exists — and the address goes with the exception. Two contracts were
+lost that way before the password was right. The store now takes a write and a
+delete first, while a failure is still free. The password itself is derived
+rather than raw: the store demands three of four character classes and a hex
+seed is two.
+
 ### Toolchain notes
 
 The version matrix cost real time to work out, so here it is.
@@ -253,13 +292,13 @@ primitives      3   commitment binding, nullifier domain separation, padding pri
 - **The book is three slots.** ZK circuits need fixed bounds. Widening it is a constant, not a redesign.
 - **Settlement is not custody.** Senyap proves a match is valid and binding. It does not move assets. This is a price-discovery layer, not a DEX.
 - **`registerMaker` is open and `tick` is manual.** Both are demo scaffolding, marked in the source. Neither is load-bearing for the privacy claim.
-- **Not yet deployed to preprod.** The deploy path is written and wired to the real preprod node and indexer, but no contract is on chain yet: it is waiting on a funded wallet with DUST registered. Everything above runs against the compiled circuits in the local simulator.
+- **Deployed, but the demo still runs locally.** The contract is on preprod (address below); the CLI demo and the web console still execute the compiled circuits in the local simulator rather than against it.
 
 ## Named deltas for Wave 2
 
 Stated in advance so progress can be measured against them:
 
-1. Deploy to Midnight preprod and wire the demo to the deployed contract.
+1. ~~Deploy to Midnight preprod~~ (done, see above) and wire the demo to the deployed contract.
 2. Replace the `Set` membership check with a `MerkleTree` proof, so losing commitments stay unlinkable at fill time.
 3. Partial fills via residual commitments.
 4. A taker-facing frontend over the deployed contract.
