@@ -4,7 +4,7 @@
 // validated in JavaScript first - when an action is refused, it is the contract
 // refusing it, and the message you see is the assert that failed.
 import {
-  Senyap, emptyPrivateState, deadSlot, bytes32, pureCircuits,
+  Senyap, emptyPrivateState, bytes32, pureCircuits,
   makerState, slotOf, takerState,
 } from '../src/venue.js';
 
@@ -61,13 +61,14 @@ function render() {
     return li;
   }));
 
-  const live = [...l.quotes].map(hex);
   $('seals').replaceChildren(...MAKERS.map((m) => {
     const c = pureCircuits.commitmentOf(
       { price: m.price, maxSize: m.maxSize, expiry: EXPIRY, makerId: pureCircuits.makerIdOf(m.sk) },
       m.nonce,
     );
-    const gone = !live.includes(hex(c));
+    // The tree cannot be listed and never deletes, so "consumed" is now the
+    // presence of a nullifier rather than the absence of a leaf.
+    const gone = l.spent.member(pureCircuits.nullifierOf(c));
     const li = document.createElement('li');
     li.className = gone ? 'gone' : '';
     li.innerHTML = `<span class="hash">${seal(c)}</span>
@@ -75,7 +76,7 @@ function render() {
     return li;
   }));
 
-  $('sQuotes').textContent = l.quotes.size();
+  $('sQuotes').textContent = l.quotes.firstFree();
   $('sFills').textContent = l.fills;
   $('sSpent').textContent = l.spent.size();
   $('sPrint').textContent = l.lastFillPrice === 0n ? '—' : l.lastFillPrice;
@@ -137,7 +138,6 @@ const ATTACKS = [
         terms: { price: 9999n, maxSize: 100n, expiry: EXPIRY, makerId: pureCircuits.makerIdOf(bytes32(99)) },
         nonce: bytes32(199), live: true,
       },
-      deadSlot(),
     ], 40n, 1100n, 0n)),
   },
   {

@@ -6,7 +6,7 @@ test('deploys with an empty book', async () => {
   const s = await Senyap.deploy();
   const l = s.ledger();
   assert.equal(l.fills, 0n);
-  assert.equal(l.quotes.isEmpty(), true);
+  assert.equal(l.quotes.firstFree(), 0n);
   assert.equal(l.epoch, 0n);
 });
 

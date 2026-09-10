@@ -18,7 +18,17 @@ import CompactStandardLibrary;
 // ---------------------------------------------------------------- public state
 
 export ledger makers: Set<Bytes<32>>;   // authorised maker ids
-export ledger quotes: Set<Bytes<32>>;   // live sealed quote commitments
+
+// Quotes live in a Merkle tree, not a Set. With a Set the taker had to name
+// every commitment it held in order to prove they were real, which linked the
+// losing quotes to the fill: the prices stayed sealed but the participation did
+// not. A path proof shows a commitment is in the tree without saying which one.
+//
+// Historic, because checkRoot has to accept the root as it was when the taker
+// built its book. A plain MerkleTree changes root on every insert, so any quote
+// posted between building and filling would invalidate the proof.
+export ledger quotes: HistoricMerkleTree<10, Bytes<32>>;
+
 export ledger spent: Set<Bytes<32>>;    // nullifiers of consumed quotes
 export ledger fills: Counter;           // number of executed fills
 
@@ -29,6 +39,9 @@ export ledger epoch: Uint<64>;          // expiry clock
 
 // ponytail: `epoch` is advanced by tick(). A production build reads block time
 // instead; the clock is not the part of the design under test here.
+
+// ponytail: depth 10 is 1024 quotes. Widening it is a constant, but every extra
+// level costs three more hashes in takeQuote, so it is not free.
 
 // ---------------------------------------------------------------------- types
 
@@ -56,6 +69,11 @@ witness takerOrder(): [Uint<64>, Uint<64>];      // [size, limitPrice]
 witness receivedQuotes(): Vector<3, QuoteSlot>;  // the taker's private book
 witness chosenIndex(): Uint<8>;
 
+// One membership path per slot, in the same order as receivedQuotes(). Padding
+// slots carry a duplicate of a real path: every slot is checked unconditionally,
+// so a path that only exists for live slots would leak how many were real.
+witness quotePaths(): Vector<3, MerkleTreePath<10, Bytes<32>>>;
+
 // ------------------------------------------------------------------- helpers
 
 export pure circuit makerIdOf(sk: Bytes<32>): Bytes<32> {
@@ -69,6 +87,13 @@ export pure circuit commitmentOf(t: QuoteTerms, nonce: Bytes<32>): Bytes<32> {
 // Domain-separated so a commitment can never be replayed as some other digest.
 export pure circuit nullifierOf(c: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<2, Bytes<32>>>([pad(32, "senyap:nullifier:v1"), c]);
+}
+
+// The nonce of what is left of a partially filled quote. Derived rather than
+// witnessed so the maker can reconstruct the residual opening from its own
+// records: the taker never has to hand anything back for the quote to stay live.
+export pure circuit residualNonceOf(nonce: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "senyap:residual:v1"), nonce]);
 }
 
 // A padding slot prices at the Uint<64> ceiling so it can never win the min.
@@ -119,8 +144,10 @@ export circuit postQuote(): Bytes<32> {
   const dev = t.price > mid ? t.price - mid : mid - t.price;
   assert(dev * 10000 <= mid * bandBps, "quote is outside the public band");
 
+  // A tree has no membership test, so the duplicate check the Set version did
+  // is gone. Posting the same quote twice is harmless: both leaves share one
+  // commitment, so they share one nullifier, and only one of them can fill.
   const c = commitmentOf(t, quoteNonce());
-  assert(!quotes.member(disclose(c)), "quote already posted");
   quotes.insert(disclose(c));
   return disclose(c);
 }
@@ -128,24 +155,33 @@ export circuit postQuote(): Bytes<32> {
 // The taker consumes one quote and proves it was the best one it held.
 export circuit takeQuote(): [] {
   const book = receivedQuotes();
+  const paths = quotePaths();
   const [size, limitPrice] = takerOrder();
   const idx = chosenIndex();
   assert(idx < 3, "chosen index out of range");
+  assert(size > 0, "fill size must be positive");
 
-  // Every live slot must correspond to a commitment that really is on the
-  // ledger. Without this the taker could invent worse quotes and manufacture a
+  // Every slot must carry a path to a commitment that really is in the tree.
+  // Without this the taker could invent worse quotes and manufacture a
   // best-execution proof against fictional competition.
-  // The lookups are unconditional on purpose. Writing this as
-  // `!live || quotes.member(...)` lets short-circuit evaluation skip the ledger
-  // read for padding slots, and whether the read happens is itself observable -
-  // the compiler's disclosure analysis rejects it, correctly. Doing all three
-  // reads every time keeps the number of real quotes out of the trace.
-  const onLedger0 = quotes.member(disclose(commitmentOf(book[0].terms, book[0].nonce)));
-  const onLedger1 = quotes.member(disclose(commitmentOf(book[1].terms, book[1].nonce)));
-  const onLedger2 = quotes.member(disclose(commitmentOf(book[2].terms, book[2].nonce)));
-  assert(!book[0].live || onLedger0, "slot 0 is not a live on-chain quote");
-  assert(!book[1].live || onLedger1, "slot 1 is not a live on-chain quote");
-  assert(!book[2].live || onLedger2, "slot 2 is not a live on-chain quote");
+  //
+  // All three are checked unconditionally, and only the recomputed root is
+  // disclosed - never the path. The path would give away the leaf index, which
+  // says when the quote was posted, and that is most of what sealing it was
+  // meant to hide.
+  assert(quotes.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(paths[0]))),
+         "slot 0 is not a live on-chain quote");
+  assert(quotes.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(paths[1]))),
+         "slot 1 is not a live on-chain quote");
+  assert(quotes.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(paths[2]))),
+         "slot 2 is not a live on-chain quote");
+
+  // A path proves some leaf is in the tree; this ties each path to the slot it
+  // is supposed to belong to. Without it a taker could prove three real quotes
+  // exist while its book held something else entirely.
+  assert(paths[0].leaf == commitmentOf(book[0].terms, book[0].nonce), "slot 0 path is for another quote");
+  assert(paths[1].leaf == commitmentOf(book[1].terms, book[1].nonce), "slot 1 path is for another quote");
+  assert(paths[2].leaf == commitmentOf(book[2].terms, book[2].nonce), "slot 2 path is for another quote");
 
   const best = min2(min2(effectivePrice(book[0]), effectivePrice(book[1])), effectivePrice(book[2]));
 
@@ -163,8 +199,20 @@ export circuit takeQuote(): [] {
   const nf = nullifierOf(c);
   assert(!spent.member(disclose(nf)), "quote has already been filled");
 
+  // Spending the whole quote and spending part of it look identical on chain:
+  // one nullifier, and one new leaf. The residual is inserted unconditionally -
+  // a full fill inserts the commitment of a zero-size quote, which no later
+  // fill can consume because takeQuote requires a positive size. Making the
+  // insert conditional would publish whether the fill was partial.
+  const residual = QuoteTerms {
+    price: q.terms.price,
+    maxSize: (q.terms.maxSize - size) as Uint<64>,
+    expiry: q.terms.expiry,
+    makerId: q.terms.makerId,
+  };
+  quotes.insert(disclose(commitmentOf(residual, residualNonceOf(q.nonce))));
+
   spent.insert(disclose(nf));
-  quotes.remove(disclose(c));
   fills.increment(1);
 
   // The only price that ever becomes public is the one that traded.
@@ -172,12 +220,18 @@ export circuit takeQuote(): [] {
 }
 
 // A maker withdraws its own quote. Ownership is proved, not asserted.
+//
+// A Merkle tree cannot delete, so a cancel is a nullifier rather than a
+// removal: the leaf stays in the tree and stops being fillable. That is the
+// same mechanism a fill uses, which is the point - the chain cannot tell a
+// cancelled quote from a filled one.
 export circuit cancelQuote(): [] {
   const sk = makerSecret();
   const t = quoteToPost();
   assert(t.makerId == makerIdOf(sk), "not the maker of this quote");
 
   const c = commitmentOf(t, quoteNonce());
-  assert(quotes.member(disclose(c)), "quote is not live");
-  quotes.remove(disclose(c));
+  const nf = nullifierOf(c);
+  assert(!spent.member(disclose(nf)), "quote is not live");
+  spent.insert(disclose(nf));
 }

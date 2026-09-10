@@ -12,6 +12,16 @@ import { Contract, ledger, pureCircuits } from './managed/senyap/contract/index.
 
 const COIN_PK = { bytes: new Uint8Array(32) };
 
+// A membership path is not private state: it is derived from the public tree,
+// which is why it can be recomputed by anyone holding the opening. A real client
+// reads the tree with queryContractState and calls the same method.
+//
+// findPathForLeaf returns undefined for a commitment that was never posted. A
+// path built at index 0 instead gives the wrong root, so the circuit refuses it
+// with "not a live on-chain quote" rather than this line throwing.
+const pathFor = (ledger, commitment) =>
+  ledger.quotes.findPathForLeaf(commitment) ?? ledger.quotes.pathForLeaf(0n, commitment);
+
 export const witnesses = {
   makerSecret:    (ctx) => [ctx.privateState, ctx.privateState.makerSecret],
   quoteToPost:    (ctx) => [ctx.privateState, ctx.privateState.quoteToPost],
@@ -19,6 +29,12 @@ export const witnesses = {
   takerOrder:     (ctx) => [ctx.privateState, ctx.privateState.takerOrder],
   receivedQuotes: (ctx) => [ctx.privateState, ctx.privateState.receivedQuotes],
   chosenIndex:    (ctx) => [ctx.privateState, ctx.privateState.chosenIndex],
+  quotePaths:     (ctx) => [
+    ctx.privateState,
+    ctx.privateState.receivedQuotes.map((s) =>
+      pathFor(ctx.ledger, pureCircuits.commitmentOf(s.terms, s.nonce)),
+    ),
+  ],
 };
 
 export const bytes32 = (n) => {
@@ -119,12 +135,35 @@ export const slotOf = (m, over = {}) => ({
   live: true,
 });
 
-// What a taker holds locally when it fills.
-export const takerState = (book, size, limit, idx) => ({
-  ...emptyPrivateState(),
-  receivedQuotes: book,
-  takerOrder: [size, limit],
-  chosenIndex: idx,
+// Padding is a copy of a real slot with the light off. It has to be: every slot
+// now carries a membership proof, checked unconditionally, and a slot invented
+// out of nothing has no path into the tree. Copying a real quote gives padding a
+// real proof, while `live: false` keeps it out of the price comparison and
+// unselectable. An all-zero slot would fail the proof and, worse, checking the
+// proof only for live slots would publish how many of them there were.
+export const padWith = (slot) => ({ ...slot, live: false });
+
+// What is left of a quote after `filled` was taken out of it. The maker can
+// build this from its own records without hearing from the taker, because the
+// residual nonce is derived rather than chosen.
+export const residualOf = (m, filled, over = {}) => ({
+  terms: { ...termsOf(m, over), maxSize: m.maxSize - filled },
+  nonce: pureCircuits.residualNonceOf(m.nonce),
+  live: true,
 });
+
+// What a taker holds locally when it fills. Pass however many real openings the
+// taker actually received; the book is padded out to three.
+export const takerState = (book, size, limit, idx) => {
+  if (book.length === 0) throw new Error('a taker book needs at least one real quote');
+  const padded = [...book];
+  while (padded.length < 3) padded.push(padWith(book[0]));
+  return {
+    ...emptyPrivateState(),
+    receivedQuotes: padded.slice(0, 3),
+    takerOrder: [size, limit],
+    chosenIndex: idx,
+  };
+};
 
 export { pureCircuits };

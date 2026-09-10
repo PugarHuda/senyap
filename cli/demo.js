@@ -7,7 +7,7 @@
 // PUBLIC LEDGER is what the chain actually holds. Two of the three prices never
 // cross that line, and the refusals at the end are enforced by the circuit, not
 // by this script.
-import { Senyap, emptyPrivateState, deadSlot, bytes32, pureCircuits, stateDump, leHex,
+import { Senyap, emptyPrivateState, bytes32, pureCircuits, stateDump, leHex,
          termsOf, makerState, slotOf, takerState } from '../src/venue.js';
 
 const MID = 1000n, BAND = 500n, EXPIRY = 10n;
@@ -32,7 +32,8 @@ const pub = (t) => console.log(`  \x1b[36m${t}\x1b[0m`);
 
 function showLedger(s) {
   const l = s.ledger();
-  pub(`quotes live      ${l.quotes.size()}`);
+  pub(`quote tree root   ${short(l.quotes.root().field.toString(16).padStart(64, '0'))}`);
+  pub(`leaves            ${l.quotes.firstFree()}`);
   pub(`fills            ${l.fills}`);
   pub(`nullifiers       ${l.spent.size()}`);
   pub(`lastFillPrice    ${l.lastFillPrice === 0n ? '-  (nothing traded yet)' : l.lastFillPrice}`);
@@ -67,9 +68,9 @@ const main = async () => {
   }
 
   h('PUBLIC LEDGER - after all three post');
-  for (const c of s.ledger().quotes) pub(`sealed quote     ${short(c)}`);
   showLedger(s);
-  pub('no price among them: a commitment is all the chain is given');
+  pub('not even a list of commitments: the chain holds one root, and a taker');
+  pub('proves its quote is under it without saying which leaf it is');
 
   h('PRIVATE - the taker');
   priv(`size ${TAKER.size}   limit ${TAKER.limit}`);
@@ -102,12 +103,13 @@ const main = async () => {
       await t.call('postQuote', makerState(m));
     }
     await t.call('takeQuote', takerState(
-      [slotOf(MAKERS.A), slotOf(MAKERS.B), slotOf(MAKERS.C)], 90n, 1048n, 1n));
+      [slotOf(MAKERS.A), slotOf(MAKERS.B), slotOf(MAKERS.C)], 40n, 1048n, 1n));
     return stateDump(t);
   })();
   const same = other === raw;
-  console.log(`  ${same ? '[32midentical[0m' : '[31mDIFFERENT[0m'}  the same fill with taker size 90 and limit 1048`);
-  pub('a one-byte size has no searchable encoding, so indistinguishability is the honest test');
+  console.log(`  ${same ? '[32midentical[0m' : '[31mDIFFERENT[0m'}  the same fill with taker limit 1048 instead of 1000`);
+  pub('a limit has no searchable encoding, so indistinguishability is the honest test');
+  pub('the fill size no longer has this property: it moves the residual commitment');
 
   h('REFUSALS - all four enforced by the circuit');
   await refuses('maker fades the committed price', () =>
@@ -116,14 +118,12 @@ const main = async () => {
   await refuses('taker fills the same quote twice', () =>
     s.call('takeQuote', takerState(book, 40n, 1000n, 1n)));
   await refuses('taker skips the best quote it holds', () =>
-    s.call('takeQuote', takerState(
-      [slotOf(MAKERS.A), deadSlot(), slotOf(MAKERS.C)], 40n, 1100n, 2n)));
+    s.call('takeQuote', takerState([slotOf(MAKERS.A), slotOf(MAKERS.C)], 40n, 1100n, 1n)));
   await refuses('taker invents a competitor nobody posted', () =>
     s.call('takeQuote', takerState([
       slotOf(MAKERS.A),
       { terms: { price: 9999n, maxSize: 100n, expiry: EXPIRY, makerId: pureCircuits.makerIdOf(bytes32(99)) },
         nonce: bytes32(199), live: true },
-      deadSlot(),
     ], 40n, 1100n, 0n)));
 
   console.log('');

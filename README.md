@@ -27,7 +27,7 @@ Senyap addresses both, and the mechanism is the same in each case: a quote is a 
 
 The taker holds the openings for every quote it received, sent off-chain by the makers. It then proves, in circuit:
 
-1. Every quote in its book corresponds to a commitment that really is live on the ledger.
+1. Every quote in its book is under the on-chain quote tree — proved by a path, so the chain never learns which leaf.
 2. The quote it consumed has the best price among them.
 3. That price satisfies the taker's own limit, and the quote covers the taker's size.
 4. The quote has not expired and has not already been filled.
@@ -41,7 +41,7 @@ Midnight splits state in two. Getting the line in the right place *is* the desig
 
 | Public ledger — on chain, anyone can recompute | Private state — witness, never leaves the machine |
 | --- | --- |
-| `quotes` — sealed quote commitments | quote `price` and `maxSize` |
+| `quotes` — a Merkle tree of sealed commitments | quote `price` and `maxSize` |
 | `spent` — nullifiers of filled quotes | maker secret key and inventory |
 | `makers` — authorised maker ids | taker order `size` |
 | `fills` — how many trades cleared | taker `limitPrice` |
@@ -57,7 +57,7 @@ Two decisions in that table are worth calling out.
 
 ## Private state management
 
-Private state is modelled as one actor's local vault, and every witness is a single read out of it (`test/harness.js`):
+Private state is modelled as one actor's local vault, and almost every witness is a single read out of it (`src/venue.js`):
 
 ```js
 const witnesses = {
@@ -70,6 +70,18 @@ const witnesses = {
 };
 ```
 
+The one exception earns its place. `quotePaths` is not read out of the vault at
+all — it is derived from the public tree:
+
+```js
+quotePaths: (ctx) => [ctx.privateState, ctx.privateState.receivedQuotes.map(
+  (s) => pathFor(ctx.ledger, pureCircuits.commitmentOf(s.terms, s.nonce)))],
+```
+
+That is the right shape for it. A membership path is public information about a
+public tree; what is private is *which* path you hold, and that never leaves the
+circuit. A real client does the same thing against `queryContractState`.
+
 Each call names its actor's vault explicitly. A maker and a taker never share one, which is the point: the maker's price is not reachable from the taker's process, and the chain sees neither.
 
 ## Circuits
@@ -77,11 +89,70 @@ Each call names its actor's vault explicitly. A maker and a taker never share on
 | Circuit | Who | What it enforces |
 | --- | --- | --- |
 | `postQuote` | maker | authorised maker, quote bound to that maker, positive size, unexpired, inside the public band. Emits a sealed commitment. |
-| `takeQuote` | taker | all three checks above plus best execution, limit, size coverage, expiry, and a fresh nullifier. Prints the winning price only. |
-| `cancelQuote` | maker | ownership is proved from the secret key, not asserted. |
+| `takeQuote` | taker | a membership path for every slot, best execution, limit, size coverage, expiry, and a fresh nullifier. Appends the residual. Prints the winning price only. |
+| `cancelQuote` | maker | ownership is proved from the secret key, not asserted. Nullifies rather than deletes. |
 | `registerMaker` | venue | admits a maker id. |
 | `setReference` | venue | publishes the mid and the band. |
 | `tick` | venue | advances the expiry clock. |
+
+## From a Set to a Merkle tree
+
+The first version kept live quotes in a `Set<Bytes<32>>` and proved membership
+with `quotes.member(c)`. That works, and it leaks. To show its book was real the
+taker had to name every commitment it held, so the fill published the losing
+quotes as *participants* even though their prices stayed sealed. Anyone watching
+could see which three makers were asked, and that is most of what an RFQ is
+trying not to say.
+
+Quotes now live in a `HistoricMerkleTree<10, Bytes<32>>`. The taker supplies a
+path per slot, the circuit recomputes the root, and only the root is disclosed:
+
+```compact
+assert(quotes.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(paths[0]))),
+       "slot 0 is not a live on-chain quote");
+```
+
+Three details in that one line took the most work.
+
+**Only the root is disclosed, never the path.** The obvious spelling is
+`disclose(path)` and it type-checks. It is also wrong: a path carries the
+sibling hashes *and* the leaf's position, and the position says when the quote
+was posted. Disclosing the recomputed root instead gives the ledger exactly what
+it needs to check and nothing else.
+
+**Historic, not plain.** A `MerkleTree` changes its root on every insert, so a
+path built when the taker assembled its book would stop verifying the moment any
+other maker posted. `HistoricMerkleTree` keeps recent roots valid, which is what
+makes the proof usable by someone who is not the last writer.
+
+**Padding had to change shape.** Every slot is checked unconditionally — the
+short-circuit lesson below still applies — so padding needs a path that
+verifies. An all-zero slot has none. Padding is now a copy of a real quote with
+`live: false`: a genuine proof, still unselectable, still losing every price
+comparison. The alternative was checking paths only for live slots, which would
+publish how many of them there were.
+
+A tree cannot delete, so two things follow. A filled quote's leaf stays where it
+is and the nullifier does the work — which was always true, the removal was
+decoration. And a cancel is now a nullifier as well, which means the chain
+cannot tell a cancelled quote from a filled one.
+
+## Partial fills
+
+A taker takes `size` out of a quote and the circuit appends the rest as a fresh
+commitment. The residual nonce is derived, not chosen:
+
+```compact
+persistentHash<Vector<2, Bytes<32>>>([pad(32, "senyap:residual:v1"), nonce])
+```
+
+so the maker can reconstruct the residual opening from its own records. It never
+has to hear back from the taker to keep the remainder of its quote sellable.
+
+The residual is inserted whether or not anything is left. A full fill appends
+the commitment of a zero-size quote, which no later fill can consume because
+`takeQuote` requires a positive size. Making the insert conditional would have
+been cheaper and would have published, on every trade, whether it was partial.
 
 ## Two soundness holes that were closed
 
@@ -99,7 +170,9 @@ The privacy test originally scanned `JSON.stringify(state)` for the losing price
 
 The fix was not a better scan, it was a **positive control**. The test now asserts the winning price *is* present in the dump before asserting the losing ones are absent. A scan that cannot see the price that traded fails loudly instead of passing quietly.
 
-Taker size gets a different treatment. A one-byte value has no searchable encoding, so a substring scan would prove nothing. Instead the test runs the same fill twice with different private orders and asserts the resulting public state is byte-identical — indistinguishability rather than absence.
+The taker's limit gets a different treatment. It has no searchable encoding, so a substring scan would prove nothing. Instead the test runs the same fill twice with different limits and asserts the resulting public state is byte-identical — indistinguishability rather than absence.
+
+The fill size used to get that treatment too, and no longer can: partial fills mean the size moves the residual commitment. The test that claimed otherwise was changed rather than deleted — it now asserts that the difference is confined to that one leaf and every named public field is unchanged. What hides the size after that is the commitment being hiding, which is an assumption, not a demonstration. Saying so is cheaper than a test that quietly stops meaning anything.
 
 ## Running it
 
@@ -116,7 +189,7 @@ Then:
 ```bash
 npm install
 npm run build   # compact compile src/senyap.compact src/managed/senyap
-npm test        # 22 tests
+npm test        # 28 tests
 npm run demo    # the end-to-end walkthrough
 
 npm run build:web && npm run dev   # the taker console
@@ -274,21 +347,24 @@ an error that never names the missing binary. `sudo apt install -y unzip`.
 
 ## Test coverage
 
-22 tests, all passing, none skipped or stubbed.
+28 tests, all passing, none skipped or stubbed.
 
 ```
 happy path      4   deploy, maker registration, quotes seal, best quote fills
-privacy         2   losing prices absent with a positive control; size indistinguishable
+privacy         3   losing prices absent with a positive control; limit
+                    indistinguishable; fill size confined to a hiding commitment
+partial fills   4   residual is sellable, cannot be overdrawn, a full fill leaves
+                    an unfillable residual, a zero fill is refused
 refusals        8   fade, not-best, over-limit, undersized, expired, double-fill,
                     fabricated competitor, padding selection
-maker guards    5   unauthorised, out-of-band, wrong maker id, cancel, cancel by impostor
+maker guards    6   unauthorised, out-of-band, wrong maker id, cancel, cancel by
+                    impostor, cancelled quote cannot be filled
 primitives      3   commitment binding, nullifier domain separation, padding price
 ```
 
 ## Limits, stated plainly
 
-- **Fills are all-or-nothing.** A quote is consumed whole. Partial fills need a residual commitment.
-- **Losing commitments are disclosed at fill time.** Their *prices* never are, and they were already public when posted, but the fill links them into one RFQ. Unlinkable membership needs a `MerkleTree` proof instead of a `Set` lookup.
+- **A partial fill moves the public state; a full one does not have to.** The residual commitment differs with the size taken, so the byte-identical property now holds only across fills of equal size. The residual is a hiding commitment, so the size is not readable from it, but that is a cryptographic assumption rather than something the leak scan can demonstrate. Stated because the older README claimed the stronger property.
 - **The book is three slots.** ZK circuits need fixed bounds. Widening it is a constant, not a redesign.
 - **Settlement is not custody.** Senyap proves a match is valid and binding. It does not move assets. This is a price-discovery layer, not a DEX.
 - **`registerMaker` is open and `tick` is manual.** Both are demo scaffolding, marked in the source. Neither is load-bearing for the privacy claim.
@@ -298,10 +374,10 @@ primitives      3   commitment binding, nullifier domain separation, padding pri
 
 Stated in advance so progress can be measured against them:
 
-1. ~~Deploy to Midnight preprod~~ (done, see above) and wire the demo to the deployed contract.
-2. Replace the `Set` membership check with a `MerkleTree` proof, so losing commitments stay unlinkable at fill time.
-3. Partial fills via residual commitments.
-4. A taker-facing frontend over the deployed contract.
+1. ~~Deploy to Midnight preprod~~ (done, see above) and wire the demo to the deployed contract — `cli/live.js` is written and drives the deployed contract; it has not completed a run on this machine, which is a memory problem rather than a code one.
+2. ~~Replace the `Set` membership check with a `MerkleTree` proof, so losing commitments stay unlinkable at fill time.~~ Done — see *From a Set to a Merkle tree*.
+3. ~~Partial fills via residual commitments.~~ Done — see *Partial fills*.
+4. A taker-facing frontend over the deployed contract. The console exists and runs the real circuits in the browser, but against the local simulator, not preprod.
 
 ## Prior art
 
