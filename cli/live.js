@@ -9,7 +9,7 @@
 // Run with: npm run live
 import { readFileSync } from 'node:fs';
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js/contracts';
-import { connect, deployRecordPath, preflightPrivateState, run } from '../src/midnight.js';
+import { connect, deployRecordPath, die, preflightPrivateState, run } from '../src/midnight.js';
 import {
   bytes32,
   emptyPrivateState,
@@ -48,11 +48,24 @@ run(async () => {
   const { providers, compiled, stop } = await connect();
   await preflightPrivateState(providers);
 
+  // findDeployedContract compares the local verifier keys against the ones the
+  // contract was deployed with. Any edit to senyap.compact changes them, and
+  // the SDK reports that as a bare ContractTypeError several frames down. Said
+  // plainly it is not an error at all, just a contract that predates the code.
   const senyap = await findDeployedContract(providers, {
     compiledContract: compiled,
     contractAddress: record.address,
     privateStateId: 'senyap',
     initialPrivateState: emptyPrivateState(),
+  }).catch((e) => {
+    if (String(e?.name ?? e).includes('ContractTypeError') || /verifier key/i.test(String(e))) {
+      die(
+        `The contract at ${record.address} was built from different circuits than\n` +
+          'the ones in src/managed. Deploy the current contract with `npm run deploy`\n' +
+          'and this will point at that one.',
+      );
+    }
+    throw e;
   });
 
   // Each actor's vault is written to the store the circuit will read it from,
@@ -97,8 +110,9 @@ run(async () => {
   h('PUBLIC LEDGER - read back from the indexer, not from this process');
   const onChain = await providers.publicDataProvider.queryContractState(record.address);
   const l = ledger(onChain.data);
-  for (const c of l.quotes) pub(`sealed quote     ${short(c)}`);
-  pub(`quotes live      ${l.quotes.size()}`);
+  // Not a list of commitments any more: a root, and a count of leaves under it.
+  pub(`quote tree root  ${short(Buffer.from(l.quotes.root().field.toString(16).padStart(64, '0'), 'hex'))}`);
+  pub(`leaves           ${l.quotes.firstFree()}`);
   pub(`fills            ${l.fills}`);
   pub(`nullifiers       ${l.spent.size()}`);
   pub(`lastFillPrice    ${l.lastFillPrice}`);
