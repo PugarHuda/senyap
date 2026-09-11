@@ -381,6 +381,11 @@ button:disabled { background: transparent; color: var(--shadow-far); border-colo
   position: sticky;
   bottom: 0;
   z-index: 2;
+  /* A status readout that sits at the viewport floor will sit on top of
+     whatever is there, and it was swallowing clicks meant for the button
+     underneath it. Nothing in here is interactive, so it should never take a
+     pointer. */
+  pointer-events: none;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;

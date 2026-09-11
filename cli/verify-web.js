@@ -94,9 +94,15 @@ try {
   // the page is the deployed one. Reading the chain from a browser is half of
   // what a taker console has to do, and it was shipped untested once already.
   if (target) {
+    // Wait for the value, never for the button's label: the label already reads
+    // "read the chain" before the click, so waiting on it waits for nothing and
+    // then reads the placeholder. That is the same vacuous-assertion trap the
+    // privacy test fell into, and it fails in the direction that looks like a
+    // real defect.
+    await page.waitForFunction(() => !document.getElementById('lRefresh').disabled, { timeout: 30_000 });
     await page.click('#lRefresh');
     await page.waitForFunction(
-      () => document.getElementById('lRefresh').textContent === 'read the chain',
+      () => document.getElementById('lLeaves').textContent !== '·',
       { timeout: 90_000 },
     );
     const leaves = await page.$eval('#lLeaves', (n) => n.textContent);
