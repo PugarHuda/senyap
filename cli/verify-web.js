@@ -102,7 +102,7 @@ try {
     const leaves = await page.$eval('#lLeaves', (n) => n.textContent);
     const print = await page.$eval('#lPrint', (n) => n.textContent);
     console.log(`  live          ${leaves} leaves on chain, last print ${print}`);
-    if (leaves === '—') fail.push('the live panel could not read the deployed contract');
+    if (leaves === '·') fail.push('the live panel could not read the deployed contract');
   } else {
     await page.screenshot({ path: 'docs/screenshot.png', fullPage: true });
     console.log('  screenshot    docs/screenshot.png');

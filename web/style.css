@@ -1,29 +1,69 @@
+/* Kelir — the screen of a wayang kulit performance.
+ *
+ * A lamp behind, a linen screen in front, and an audience that only ever sees
+ * shadows. The distance between a puppet and the screen decides how sharp its
+ * shadow is: held back it is mass without detail, brought close it is exact
+ * down to the perforations. That is this contract, rendered rather than
+ * described — a sealed quote is a far shadow, and the price that trades is the
+ * one brought to the linen.
+ *
+ * Palette law: each colour means one thing and nothing else may use it.
+ *   linen    the screen
+ *   shadow   anything cut from leather — text, sealed rows, the print
+ *   blencong the lamp, and only the lamp
+ *   soga     refusal, and only refusal
+ *   bronze   rules and keylines
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Azeret+Mono:wght@400;500;700&family=Petrona:ital,wght@0,600;0,800;1,600&display=swap');
+
 :root {
-  --bg: #08080c;
-  --panel: #0f0f17;
-  --line: #1d1d2b;
-  --text: #e6e6ec;
-  --muted: #74748a;
-  --private: #c084fc;
-  --public: #22d3ee;
-  --good: #4ade80;
-  --bad: #fb7185;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-  --sans: ui-sans-serif, system-ui, "Segoe UI", Inter, sans-serif;
+  --linen: #efe3c8;
+  --linen-far: #dccba6;
+  --shadow: #17140f;
+  --shadow-far: #5a4e3c;
+  /* Measured against --linen-far, the dark end of the gradient where the best
+     price actually sits: 4.9:1. The earlier value was 2.68:1 there and the
+     comment claiming 3.7:1 was simply wrong. */
+  --blencong: #7e4205;
+  --blencong-lit: #241d13;  /* leather with the lamp behind it: button hover */
+  --soga-lit: #f0a58c;      /* soga read against the dark: the refused verdict */
+  --soga: #8a3418;
+  --bronze: #6b5c34;
+
+  --display: 'Petrona', Georgia, 'Times New Roman', serif;
+  --ui: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --data: 'Azeret Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* One clock. The dalang keeps time; the interface borrows it. */
+  --beat: 420ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * { box-sizing: border-box; }
 
+html { color-scheme: light; }
+
 body {
   margin: 0;
+  /* The blencong sits behind the screen, above and slightly left of centre.
+     Everything falls off from there. */
   background:
-    radial-gradient(1100px 520px at 12% -12%, #17172a 0%, transparent 62%),
-    var(--bg);
-  color: var(--text);
-  font-family: var(--sans);
+    radial-gradient(120ch 70ch at 38% -12%, #f7eed9 0%, var(--linen) 42%, var(--linen-far) 100%)
+    var(--linen);
+  color: var(--shadow);
+  font-family: var(--ui);
+  font-size: 16px;
   line-height: 1.55;
-  min-height: 100vh;
-  padding: clamp(1.25rem, 4vw, 3rem);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--shadow); color: var(--linen); }
+:root { caret-color: var(--blencong); scrollbar-color: var(--bronze) var(--linen-far); }
+
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--blencong);
+  outline-offset: 3px;
 }
 
 /* ------------------------------------------------------------------ header */
@@ -34,170 +74,348 @@ header {
   gap: 1.5rem 3rem;
   align-items: flex-end;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 1.5rem;
-  margin-bottom: 2rem;
+  padding: clamp(2rem, 5vw, 3.75rem) clamp(1.25rem, 5vw, 4rem) 1.5rem;
+  max-width: 96rem;
+  margin: 0 auto;
 }
+
+.brand { display: flex; align-items: flex-start; gap: clamp(0.9rem, 2vw, 1.5rem); }
+
+/* The gunungan is planted before a performance begins and again when it ends.
+   Drawn, not a glyph. */
+.gunungan { flex: none; width: clamp(2.4rem, 4vw, 3.4rem); height: auto; margin-top: 0.25rem; }
+.gunungan path { fill: var(--shadow); }
+.gunungan circle { fill: var(--linen); }
 
 h1 {
-  font-size: clamp(2rem, 5vw, 2.9rem);
-  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 6vw, 4.2rem);
+  line-height: 0.86;
   letter-spacing: -0.035em;
-  font-weight: 620;
-  background: linear-gradient(96deg, #fff 20%, var(--private) 130%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  margin: 0;
 }
 
-.tag { margin: 0.35rem 0 0; color: var(--muted); max-width: 46ch; font-size: 0.95rem; }
+.tag {
+  margin: 0.5rem 0 0;
+  max-width: 44ch;
+  color: var(--shadow-far);
+  font-size: 0.95rem;
+}
 
-.band { display: flex; gap: 2rem; margin: 0; }
-.band div { display: grid; gap: 0.15rem; }
-.band dt { color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; }
-.band dd { margin: 0; font-family: var(--mono); font-size: 1.05rem; color: var(--public); }
+.band {
+  display: flex;
+  gap: 2.25rem;
+  margin: 0;
+  align-items: flex-end;
+}
+.band div { display: flex; flex-direction: column; gap: 0.2rem; }
+.band dt {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--shadow-far);
+}
+.band dd {
+  margin: 0;
+  font-family: var(--data);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
 
-.boot { color: var(--muted); font-family: var(--mono); font-size: 0.9rem; }
+.boot {
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: 2rem clamp(1.25rem, 5vw, 4rem) 4rem;
+  color: var(--shadow-far);
+  font-size: 0.95rem;
+}
 
-/* ------------------------------------------------------------------ panels */
+/* -------------------------------------------------------------------- main */
 
 main {
+  max-width: 96rem;
+  margin: 0 auto;
+  /* The verdict bar sticks to the viewport floor, so the last row of content
+     needs somewhere to go behind it. */
+  padding: 0 clamp(1.25rem, 5vw, 4rem) 7rem;
   display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  align-items: start;
+  gap: clamp(2rem, 4vw, 3.5rem);
+  grid-template-columns: 1fr;
 }
 
+@media (min-width: 62rem) {
+  main { grid-template-columns: 1fr 1fr; align-items: start; }
+  .panel.attacks, .panel.live { grid-column: 1 / -1; }
+}
+
+/* No containers. A bronze rule and space do the separating. */
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 1.35rem 1.4rem 1.5rem;
-}
-
-.panel h2 {
+  border-top: 1px solid var(--bronze);
+  padding-top: 1.15rem;
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0 0 0.3rem;
-  font-size: 0.95rem;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+h2 {
+  font-family: var(--ui);
+  font-size: 1.02rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.005em;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
 }
-
-.panel h2 em {
+h2 em {
   font-style: normal;
-  margin-left: auto;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+  color: var(--shadow-far);
 }
 
-.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.private .dot { background: var(--private); box-shadow: 0 0 12px var(--private); }
-.public .dot  { background: var(--public);  box-shadow: 0 0 12px var(--public); }
-.attacks .dot { background: var(--bad);     box-shadow: 0 0 12px var(--bad); }
+/* The contract address is 64 unbroken characters and has to be allowed to
+   break; ordinary prose in .note is unaffected. */
+#liveAddr { overflow-wrap: anywhere; }
 
-.attacks { grid-column: 1 / -1; }
+.note {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--shadow-far);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
 
-.note { color: var(--muted); font-size: 0.83rem; margin: 0 0 1.1rem; }
+/* --------------------------------------------------------- the desk (near) */
 
-/* ------------------------------------------------------------------ quotes */
+.quotes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 
-.quotes, .seals { list-style: none; margin: 0 0 1.25rem; padding: 0; display: grid; gap: 0.5rem; }
+.quotes li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  align-items: baseline;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--bronze) 35%, transparent);
+}
+/* A flex child defaults to min-width:auto and refuses to shrink under its own
+   content, which is what pushed the desk 124px past a 390px viewport. */
+.quotes li > * { min-width: 0; }
+.quotes .who { flex: 1 1 6rem; }
 
-.quotes li, .seals li {
+.quotes .who { font-weight: 500; font-size: 0.95rem; }
+.quotes .px {
+  font-family: var(--data);
+  font-weight: 700;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.quotes .sz {
+  font-family: var(--data);
+  font-size: 0.82rem;
+  color: var(--shadow-far);
+  font-variant-numeric: tabular-nums;
+}
+.quotes .flag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--blencong);
+}
+.quotes li.best .px { color: var(--blencong); }
+
+.order { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 0.4rem; }
+.order label {
   display: flex;
   align-items: baseline;
-  gap: 0.85rem;
-  font-family: var(--mono);
-  font-size: 0.88rem;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #0b0b12;
-}
-
-.quotes .who { color: var(--muted); }
-.quotes .px { color: var(--private); font-size: 1.05rem; }
-.quotes .sz { color: var(--muted); margin-left: auto; }
-.quotes li.best { border-color: color-mix(in srgb, var(--private) 45%, var(--line)); }
-.quotes .flag {
-  font-family: var(--sans); font-size: 0.62rem; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--private);
-}
-
-.seals .hash { color: var(--public); }
-.seals .lbl { color: var(--muted); font-size: 0.75rem; }
-.seals li.gone { opacity: 0.35; text-decoration: line-through; }
-
-/* ------------------------------------------------------------------- order */
-
-.order { display: flex; gap: 0.8rem; margin-bottom: 0.9rem; }
-.order label {
-  flex: 1; display: grid; gap: 0.3rem;
-  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted);
+  gap: 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--shadow-far);
 }
 .order input {
-  background: #0b0b12; border: 1px solid var(--line); border-radius: 8px;
-  color: var(--text); font-family: var(--mono); font-size: 1rem; padding: 0.5rem 0.65rem;
+  width: 6.5rem;
+  font-family: var(--data);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--shadow);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--bronze);
+  padding: 0.25rem 0.1rem;
 }
-.order input:focus { outline: 2px solid color-mix(in srgb, var(--private) 55%, transparent); outline-offset: 1px; }
+.order input:hover { border-bottom-color: var(--shadow); }
 
 button {
-  width: 100%; cursor: pointer; font: inherit; font-size: 0.86rem; font-weight: 550;
-  padding: 0.72rem 1rem; border-radius: 9px; border: 1px solid var(--line);
-  background: #14141f; color: var(--text); transition: border-color .14s, background .14s;
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--linen);
+  background: var(--shadow);
+  border: 1px solid var(--shadow);
+  border-radius: 0;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+  transition: background var(--beat) var(--ease), color var(--beat) var(--ease);
 }
-button:hover:not(:disabled) { background: #1b1b29; border-color: #33334a; }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The lamp is behind the screen, so it catches the puppet's rim rather than
+   painting it. Flooding the button amber also put linen text at 3.3:1. */
+button:hover { background: var(--blencong-lit); border-color: var(--blencong); }
+button:disabled { background: transparent; color: var(--shadow-far); border-color: var(--bronze); cursor: progress; }
 
-.fill {
-  background: color-mix(in srgb, var(--private) 17%, #14141f);
-  border-color: color-mix(in srgb, var(--private) 42%, var(--line));
+.fill { align-self: flex-start; }
+
+/* -------------------------------------------------------- the screen (far) */
+
+.seals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+
+/* A sealed quote is a puppet held away from the linen: you get the mass and
+   none of the detail. The blur is the mechanism, not an effect. */
+.seals li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--shadow);
+  color: var(--linen);
+  filter: blur(2.4px);
+  opacity: 0.86;
+  transition: filter var(--beat) var(--ease), opacity var(--beat) var(--ease);
 }
-.fill:hover:not(:disabled) { background: color-mix(in srgb, var(--private) 27%, #14141f); }
+.seals li:hover, .seals li:focus-visible { filter: blur(1.1px); opacity: 0.95; }
+/* Touch has no hover, so the rows rest nearer the linen there instead. */
+@media (hover: none) { .seals li { filter: blur(1.6px); } }
 
-/* ------------------------------------------------------------------- stats */
+.seals li > * { min-width: 0; }
+.seals .hash {
+  font-family: var(--data);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+.seals .lbl {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--linen) 72%, var(--shadow));
+}
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 0.9rem; margin: 0; }
-.stats div { display: grid; gap: 0.15rem; }
-.stats dt { color: var(--muted); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.09em; }
-.stats dd { margin: 0; font-family: var(--mono); font-size: 1.25rem; }
-.stats .print dd { color: var(--public); }
+/* Brought to the linen: still leather, now exact. Turning it transparent made
+   the near object the faintest one in the column and ran the page's own physics
+   backwards. The strike and the recovered sharpness carry the state. */
+.seals li.gone {
+  filter: none;
+  opacity: 1;
+}
+.seals li.gone .hash { text-decoration: line-through; text-decoration-color: var(--soga-lit); }
+.seals li.gone .lbl { color: var(--soga-lit); }
 
-/* ----------------------------------------------------------------- attacks */
+.stats { display: flex; flex-wrap: wrap; gap: 1.5rem 2.25rem; margin: 0.3rem 0 0; }
+.stats div { display: flex; flex-direction: column; gap: 0.2rem; }
+.stats dt {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--shadow-far);
+}
+.stats dd {
+  margin: 0;
+  font-family: var(--data);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
 
-.grid { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
-.grid button { text-align: left; display: grid; gap: 0.2rem; }
-.grid .sub { font-size: 0.72rem; color: var(--muted); font-weight: 400; }
+/* The print: the one shadow brought all the way to the linen. Before anything
+   trades there is nothing to print, and an empty value has no business at
+   display scale. */
+.stats .print dd:not(.lit) {
+  font-family: var(--data);
+  font-size: 1.05rem;
+  color: var(--shadow-far);
+}
+.stats .print dd.lit {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
 
-/* ------------------------------------------------------------------ result */
+/* ------------------------------------------------------------------ attacks */
+
+.grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+
+.grid button {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+  text-align: left;
+  background: transparent;
+  color: var(--shadow);
+  border: 0;
+  border-top: 1px solid var(--bronze);
+  padding: 0.85rem 1.1rem 0.95rem 0;
+}
+.grid button:hover, .grid button:focus-visible {
+  background: var(--shadow);
+  color: var(--linen);
+  padding-left: 1.1rem;
+}
+.grid button .sub { font-size: 0.78rem; font-weight: 400; color: var(--shadow-far); }
+.grid button:hover .sub { color: color-mix(in srgb, var(--linen) 72%, var(--shadow)); }
+
+/* ------------------------------------------------------------------- result */
 
 .result {
-  position: sticky; bottom: 1rem; margin-top: 1.25rem;
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 1rem;
-  padding: 0.9rem 1.15rem; border-radius: 11px;
-  border: 1px solid var(--line); background: #0d0d15;
-  font-family: var(--mono); font-size: 0.9rem;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.1rem;
+  padding: 1rem clamp(1.25rem, 5vw, 4rem);
+  background: var(--shadow);
+  color: var(--linen);
+  box-shadow: 0 -6px 24px -12px rgba(23, 20, 15, 0.55);
 }
-.result .verdict { font-weight: 700; letter-spacing: 0.06em; }
-.result .reason { color: var(--muted); }
-.result.ok  { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
-.result.ok .verdict  { color: var(--good); }
-.result.no  { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
-.result.no .verdict  { color: var(--bad); }
+.verdict {
+  font-family: var(--data);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+.result.no .verdict { color: var(--soga-lit); }
+.reason { font-size: 0.88rem; color: color-mix(in srgb, var(--linen) 76%, var(--shadow)); }
+
+/* ------------------------------------------------------------------- footer */
 
 footer {
-  display: flex; flex-wrap: wrap; gap: 1.4rem;
-  margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
-  color: var(--muted); font-size: 0.78rem;
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1.25rem, 5vw, 4rem) 3rem;
+  border-top: 1px solid var(--bronze);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.75rem;
+  font-size: 0.8rem;
+  color: var(--shadow-far);
 }
-footer a { color: var(--public); text-decoration: none; }
-footer a:hover { text-decoration: underline; }
+footer a { color: var(--shadow); text-decoration-color: var(--bronze); text-underline-offset: 3px; }
+footer a:hover { text-decoration-color: var(--blencong); }
 
-@media (prefers-reduced-motion: no-preference) {
-  .result { animation: rise .18s ease-out; }
-  @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  .seals li { filter: none; opacity: 1; }
 }

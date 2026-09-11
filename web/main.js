@@ -62,7 +62,19 @@ function render() {
     return li;
   }));
 
-  $('seals').replaceChildren(...MAKERS.map((m) => {
+  // The seal rows are built once and only ever updated in place. Replacing the
+  // nodes would restart them from scratch, and the blur-to-sharp transition -
+  // the whole mechanism of this page - could never fire on a state change.
+  const seals = $('seals');
+  if (!seals.children.length) {
+    seals.replaceChildren(...MAKERS.map(() => {
+      const li = document.createElement('li');
+      li.tabIndex = 0;
+      li.innerHTML = '<span class="hash"></span><span class="lbl"></span>';
+      return li;
+    }));
+  }
+  MAKERS.forEach((m, i) => {
     const c = pureCircuits.commitmentOf(
       { price: m.price, maxSize: m.maxSize, expiry: EXPIRY, makerId: pureCircuits.makerIdOf(m.sk) },
       m.nonce,
@@ -70,17 +82,18 @@ function render() {
     // The tree cannot be listed and never deletes, so "consumed" is now the
     // presence of a nullifier rather than the absence of a leaf.
     const gone = l.spent.member(pureCircuits.nullifierOf(c));
-    const li = document.createElement('li');
-    li.className = gone ? 'gone' : '';
-    li.innerHTML = `<span class="hash">${seal(c)}</span>
-      <span class="lbl">${gone ? 'consumed' : 'sealed — no price on chain'}</span>`;
-    return li;
-  }));
+    const li = seals.children[i];
+    li.classList.toggle('gone', gone);
+    li.querySelector('.hash').textContent = seal(c);
+    li.querySelector('.lbl').textContent = gone ? 'consumed' : 'sealed, no price on chain';
+  });
 
   $('sQuotes').textContent = l.quotes.firstFree();
   $('sFills').textContent = l.fills;
   $('sSpent').textContent = l.spent.size();
-  $('sPrint').textContent = l.lastFillPrice === 0n ? '—' : l.lastFillPrice;
+  const printed = l.lastFillPrice !== 0n;
+  $('sPrint').textContent = printed ? l.lastFillPrice : 'nothing yet';
+  $('sPrint').classList.toggle('lit', printed);
 }
 
 function say(ok, verdict, reason) {
@@ -103,7 +116,7 @@ async function run(label, fn, expectRefusal = false) {
       say(false, 'ACCEPTED', `${label} — this should have been refused. That is a bug.`);
     } else {
       say(true, `FILLED @ ${venue.ledger().lastFillPrice}`,
-        'only this price reached the chain; the other two quotes stay sealed');
+        'only this price reached the chain; the other two stay sealed. Proved, not settled');
     }
   } catch (e) {
     const m = String(e.message ?? e).match(/failed assert: ([^\n]*)/);
@@ -185,13 +198,15 @@ try {
       const live = await readLive();
       if (!live.ok) {
         $('liveAddr').textContent = live.reason;
-        for (const id of ['lRoot', 'lLeaves', 'lFills', 'lPrint']) $(id).textContent = '—';
+        for (const id of ['lRoot', 'lLeaves', 'lFills', 'lPrint']) $(id).textContent = '·';
       } else {
         $('liveAddr').textContent = explorerNote;
         $('lRoot').textContent = `${live.root.slice(0, 10)}…${live.root.slice(-6)}`;
         $('lLeaves').textContent = live.leaves;
         $('lFills').textContent = live.fills;
-        $('lPrint').textContent = live.lastFillPrice === 0n ? '—' : live.lastFillPrice;
+        const lit = live.lastFillPrice !== 0n;
+        $('lPrint').textContent = lit ? live.lastFillPrice : 'nothing yet';
+        $('lPrint').classList.toggle('lit', lit);
       }
     } catch (e) {
       $('liveAddr').textContent = `could not reach the indexer: ${e.message ?? e}`;

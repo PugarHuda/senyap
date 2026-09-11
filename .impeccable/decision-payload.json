@@ -1,0 +1,142 @@
+{
+  "title": "Pilih dunia visual Senyap",
+  "question": "Undian menjatuhkan Layar Dealing. Pertahankan, ambil alternatif, atau gulung ulang.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Layar Dealing",
+      "kicker": "THE ROLL",
+      "lineage": "layar dealing fosfor, tenunan parang sebagai tanah",
+      "thesis": "Terminal meja dealing: yang tersegel adalah tekstur, yang tercetak adalah cahaya.",
+      "palette": ["#0A0A0A", "#3C4650", "#FFB000", "#EDE6D6", "#C1440E"],
+      "materials": ["fosfor amber", "tanah parang", "kisi 80 kolom tetap"],
+      "viewport": "Tiga baris kuota sebagai pita parang yang terbaca sebagai tekstur, lalu satu angka amber setinggi poster: harga yang tercetak.",
+      "risk": "Terminal retro bisa terbaca sebagai kostum kalau kisinya tidak benar-benar tetap.",
+      "case": "Layar ini yang dibaca meja dealing tiap hari; parang membawa komitmen Indonesia tanpa menjadikan halaman pertunjukan.",
+      "raised": [
+        {
+          "from": "Alphabet storm",
+          "raise": "Harga yang tercetak diset sebesar poster dan menjadi peristiwanya sendiri, bukan label yang menerangkan peristiwa."
+        },
+        {
+          "from": "Industrial quote grammar",
+          "raise": "Kuota terpakai membawa tanda fisik - garis coret pada barisnya - bukan sekadar diredupkan warnanya."
+        },
+        {
+          "from": "Metro typographic tiles",
+          "raise": "Tidak ada kartu dan tidak ada wadah: garis dan tipografi yang memisahkan, chrome dihapus seluruhnya."
+        },
+        {
+          "from": "Arcade pixel glow",
+          "raise": "Palet sebagai hukum: amber hanya untuk yang publik, slate hanya untuk yang tersegel, soga hanya untuk penolakan. Tidak ada yang lain boleh memakainya."
+        }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Kelir",
+      "kicker": "IMPECCABLE'S PICK",
+      "lineage": "wayang kulit: lampu, layar, bayangan",
+      "thesis": "Penonton hanya pernah melihat bayangan; wayangnya tetap di balik layar.",
+      "palette": ["#11100E", "#E8DFC8", "#FFF6E0", "#E4A11B", "#7A6A3F"],
+      "materials": ["linen kelir", "nyala blencong", "bayangan kulit tatah"],
+      "viewport": "Satu bidang linen yang dinyalakan dari belakang; kuota jatuh sebagai bayangan bertepi tatah, dan hanya yang terisi yang melangkah ke depan lampu.",
+      "risk": "Ini kandidat teratas saya, dan justru itu risikonya: lebih ekspresif daripada yang dibutuhkan perkakas meja, dan bisa terbaca sebagai teater.",
+      "case": "Mekanismenya identik dengan bentuk pertunjukannya - bentuk disembunyikan, proyeksinya publik - dan komitmen Indonesia menjadi struktur, bukan hiasan."
+    },
+    {
+      "id": "challenger-darkroom",
+      "label": "Kamar Gelap",
+      "verdict": "competitive",
+      "lineage": "bilik cetak di bawah safelight amber",
+      "thesis": "Gambar muncul perlahan di nampan, dan setelah titik tertentu tidak bisa ditarik kembali.",
+      "palette": ["#C8791F", "#6E7378", "#E9E6DF", "#14161A"],
+      "materials": ["safelight", "perak cetak basah", "nampan enamel"],
+      "viewport": "Tiga nampan berurutan; kuota tersegel sebagai hantu abu-abu, dan yang terisi mengeras jadi hitam penuh.",
+      "risk": "Dunia fotografer, bukan dunia meja dealing - audiens tidak mengenali dirinya di sana.",
+      "case": "Menang di kejernihan produk: komitmen yang mengikat persis berarti 'tidak bisa ditarik kembali setelah titik tertentu'. Kalah di identifikasi audiens.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-darkroom-safelight-bay-hero.webp"
+    },
+    {
+      "id": "challenger-kraftwerk",
+      "label": "Man-Machine",
+      "verdict": "competitive",
+      "lineage": "identitas band sebagai diagram garis neon di kisi lalu lintas",
+      "thesis": "Mekanismenya digambar sebagai rangkaian, bukan dijelaskan sebagai teks.",
+      "palette": ["#E10600", "#F5A800", "#00A651", "#000000", "#FFFFFF"],
+      "materials": ["isian enamel", "garis neon", "kisi modular"],
+      "viewport": "Jaringan konektor ortogonal; membuktikan keanggotaan menyalakan satu jalur dari garis redup menjadi neon penuh.",
+      "risk": "Kisi lalu lintas itu bergaya, tetapi bukan dunia yang dikenali meja dealing.",
+      "case": "Menang di kejernihan: 'simpul aktif menyalakan jalur penghubungnya' adalah bukti path Merkle yang digambar. Kalah di identifikasi audiens.",
+      "hero": "https://impeccable.style/worlds/cards/kraftwerk-man-machine-hero.webp"
+    },
+    {
+      "id": "challenger-alphabet-storm",
+      "label": "Badai Aksara",
+      "verdict": "declined",
+      "lineage": "huruf mengembun jadi kata lalu pecah jadi cuaca",
+      "thesis": "Bahasa yang diketik menjadi cuaca dengan akibat fisik.",
+      "palette": ["#FFFFFF", "#0B0B0B", "#B8BDC4", "#C9CED4"],
+      "materials": ["tinta badai", "tanah kertas"],
+      "viewport": "Satu grotesk monumental berperilaku sebagai materi di padang terbuka.",
+      "risk": "Cuaca tidak mengatakan apa-apa tentang harga yang tersegel.",
+      "case": "Kalah di kedua sumbu: meja dealing tidak mengenali dirinya, dan badai tidak menjernihkan mekanisme.",
+      "kept": "Tipografi sebagai materi - angka yang tercetak adalah peristiwanya, bukan label.",
+      "hero": "https://impeccable.style/worlds/cards/dream-surreal-impossible-worlds-alphabet-storm-hero.webp"
+    },
+    {
+      "id": "challenger-industrial-quote",
+      "label": "Tata Bahasa Gudang",
+      "verdict": "declined",
+      "lineage": "streetwear industrial: kabel ties, garis bahaya, label dalam tanda kutip",
+      "thesis": "Setiap zona diberi nama harfiahnya sendiri dalam tanda kutip.",
+      "palette": ["#FFFFFF", "#111111", "#FF6A00", "#E5E5E5"],
+      "materials": ["katun gudang", "nilon hitam", "kabel tie oranye"],
+      "viewport": "Pelat label persegi di kisi, garis bahaya 45 derajat melintang di bawah apa pun yang penting.",
+      "risk": "Kosakata ritel, bukan kosakata meja dealing.",
+      "case": "Kalah di kedua sumbu, meski disiplin state-nya rapi.",
+      "kept": "State dibawa oleh material, bukan warna: yang mati mendapat garis melintang, bukan sekadar diredupkan.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-industrial-quote-grammar-hero.webp"
+    },
+    {
+      "id": "challenger-metro-tiles",
+      "label": "Ubin Tipografis",
+      "verdict": "declined",
+      "lineage": "layar metro: bidang warna datar, huruf kecil raksasa",
+      "thesis": "Chrome dihapus sampai tipografi itu sendiri menjadi antarmukanya.",
+      "palette": ["#000000", "#00B7C3", "#E3008C", "#8CBF26", "#FFFFFF"],
+      "materials": ["ubin datar", "tanpa gradien"],
+      "viewport": "Judul huruf kecil raksasa terpotong di tepi kanan, ubin sebagai satu-satunya pintu.",
+      "risk": "Bahasa konsumen 2012; ubin tidak membawa gagasan penyegelan.",
+      "case": "Kalah di kedua sumbu.",
+      "kept": "Chrome dihapus: tidak ada wadah dekoratif, tipografi dan garis yang memisahkan.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-metro-typographic-tiles-hero.webp"
+    },
+    {
+      "id": "challenger-arcade-pixel",
+      "label": "Kabinet Arkade",
+      "verdict": "declined",
+      "lineage": "layar CRT arkade: piksel gemuk, scanline, bloom fosfor",
+      "thesis": "Palet enam belas warna sebagai hukum, bukan sebagai pilihan.",
+      "palette": ["#0B0B0B", "#F8F8F8", "#FFD700", "#E8453C", "#3CB4E8"],
+      "materials": ["fosfor", "scanline", "sprite"],
+      "viewport": "Kisi ubin utuh, skor dipaku di tepi atas, tidak ada yang keluar kisi.",
+      "risk": "Berbagi material fosfor dengan arah utama tanpa membawa dunia audiens - duplikasi, bukan tambahan.",
+      "case": "Kalah di identifikasi audiens; kejernihannya datang dari disiplin palet, yang sudah diambil.",
+      "kept": "Palet sebagai hukum: tiap warna punya satu makna dan tidak ada yang lain boleh memakainya.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-crt-arcade-pixel-glow-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "Standar kategori",
+    "thesis": "Yang selalu dikirim kategori ini, dikerjakan dengan rapi.",
+    "palette": ["#0D0D12", "#7C5CFF", "#1A1A24", "#F5F5F7"],
+    "materials": ["kartu membulat", "aksen neon", "kaca buram"],
+    "viewport": "Dashboard gelap, kartu statistik berjajar, tombol connect wallet di kanan atas.",
+    "risk": "Tidak bisa dibedakan dari pesaingnya, memang begitu rancangannya."
+  },
+  "steer": true
+}

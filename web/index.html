@@ -3,20 +3,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Senyap — sealed-quote RFQ on Midnight</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
+    <title>Senyap, sealed-quote RFQ on Midnight</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 40'><rect width='24' height='40' fill='%23efe3c8'/><path d='M12 2C7 9 4 15 4 22c0 8 4 14 8 16 4-2 8-8 8-16 0-7-3-13-8-20z' fill='%2317140f'/><circle cx='12' cy='20' r='2.6' fill='%23efe3c8'/></svg>"
+    />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <header>
       <div class="brand">
-        <h1>Senyap</h1>
-        <p class="tag">Sealed-quote RFQ on Midnight. The chain learns one price: the one that traded.</p>
+        <!-- The gunungan is planted centre-screen before a performance begins. -->
+        <svg class="gunungan" viewBox="0 0 24 40" aria-hidden="true" focusable="false">
+          <path d="M12 2C7 9 4 15 4 22c0 8 4 14 8 16 4-2 8-8 8-16 0-7-3-13-8-20z" />
+          <circle cx="12" cy="20" r="2.6" />
+        </svg>
+        <div>
+          <h1>Senyap</h1>
+          <p class="tag">
+            A quote is a commitment. It binds the maker and it says nothing. The
+            chain learns one number, the price that traded.
+          </p>
+        </div>
       </div>
       <dl class="band" id="band">
-        <div><dt>reference mid</dt><dd id="mid">—</dd></div>
-        <div><dt>band</dt><dd id="bandBps">—</dd></div>
-        <div><dt>accepted</dt><dd id="range">—</dd></div>
+        <div><dt>reference mid</dt><dd id="mid">·</dd></div>
+        <div><dt>band</dt><dd id="bandBps">·</dd></div>
+        <div><dt>accepted</dt><dd id="range">·</dd></div>
       </dl>
     </header>
 
@@ -24,56 +37,78 @@
 
     <main hidden id="app">
       <section class="panel private">
-        <h2><span class="dot"></span>Your desk <em>private</em></h2>
-        <p class="note">Openings the makers sent you off-chain. They never touch the chain, and the other makers never see them.</p>
+        <h2>Your desk <em>private</em></h2>
+        <p class="note">
+          Openings the makers sent you off-chain. They never reach the chain, and
+          no other maker ever sees them. These three are sample openings, written
+          for this page.
+        </p>
         <ul class="quotes" id="quotes"></ul>
 
         <div class="order">
           <label>size <input id="size" type="number" value="40" min="1" max="100" /></label>
           <label>limit <input id="limit" type="number" value="1000" min="1" /></label>
         </div>
-        <button class="fill" id="fill">Prove &amp; fill best quote</button>
+        <button class="fill" id="fill">Prove and fill the best quote</button>
+        <p class="note">
+          A fill here is proved, not settled. Senyap shows a match is valid and
+          binding; no assets move.
+        </p>
       </section>
 
       <section class="panel public">
-        <h2><span class="dot"></span>Public ledger <em>on chain</em></h2>
-        <p class="note">Everything anyone else can see. Three commitments, no prices.</p>
+        <h2>The screen <em>on chain</em></h2>
+        <p class="note">
+          What anyone else gets to see. Each sealed quote is a shadow held away
+          from the linen: mass, no detail. Only what has been spent comes into
+          focus.
+        </p>
         <ul class="seals" id="seals"></ul>
         <dl class="stats">
-          <div><dt>tree leaves</dt><dd id="sQuotes">—</dd></div>
-          <div><dt>fills</dt><dd id="sFills">—</dd></div>
-          <div><dt>nullifiers</dt><dd id="sSpent">—</dd></div>
-          <div class="print"><dt>last print</dt><dd id="sPrint">—</dd></div>
+          <div><dt>tree leaves</dt><dd id="sQuotes">·</dd></div>
+          <div><dt>fills</dt><dd id="sFills">·</dd></div>
+          <div><dt>nullifiers</dt><dd id="sSpent">·</dd></div>
+          <div class="print"><dt>the print</dt><dd id="sPrint">·</dd></div>
         </dl>
       </section>
 
       <section class="panel live">
-        <h2><span class="dot"></span>The same contract, on preprod <em>not this browser</em></h2>
-        <p class="note">Everything above runs the circuits locally. This panel asks the public indexer what the deployed contract actually holds — no wallet, because reading is not a transaction.</p>
-        <p class="note" id="liveAddr">—</p>
+        <h2>The same contract, on preprod <em>not this browser</em></h2>
+        <p class="note">
+          Everything above runs the circuits here in the page. This reads the
+          deployed contract from the public indexer instead. No wallet is needed,
+          because reading is not a transaction.
+        </p>
+        <p class="note" id="liveAddr">·</p>
         <dl class="stats">
-          <div><dt>tree root</dt><dd id="lRoot">—</dd></div>
-          <div><dt>leaves</dt><dd id="lLeaves">—</dd></div>
-          <div><dt>fills</dt><dd id="lFills">—</dd></div>
-          <div class="print"><dt>last print</dt><dd id="lPrint">—</dd></div>
+          <div><dt>tree root</dt><dd id="lRoot">·</dd></div>
+          <div><dt>leaves</dt><dd id="lLeaves">·</dd></div>
+          <div><dt>fills</dt><dd id="lFills">·</dd></div>
+          <div class="print"><dt>the print</dt><dd id="lPrint">·</dd></div>
         </dl>
         <button id="lRefresh">read the chain</button>
       </section>
 
       <section class="panel attacks">
-        <h2><span class="dot"></span>Try to cheat it <em>the refusals are the product</em></h2>
-        <p class="note">Each button runs the real circuit. None of them is checked in JavaScript — the contract refuses them.</p>
+        <h2>Try to cheat it <em>the refusals are the product</em></h2>
+        <p class="note">
+          Each button runs the real circuit. Nothing here is checked in
+          JavaScript first: when it says REFUSED, that string is the assert that
+          failed inside the contract.
+        </p>
         <div class="grid" id="attacks"></div>
       </section>
     </main>
 
-    <div class="result" id="result" hidden><span class="verdict" id="verdict"></span><span class="reason" id="reason"></span></div>
+    <div class="result" id="result" hidden>
+      <span class="verdict" id="verdict"></span><span class="reason" id="reason"></span>
+    </div>
 
     <footer>
       <a href="https://github.com/PugarHuda/senyap">source</a>
       <span>Apache 2.0</span>
       <span>Compact 0.31.1</span>
-      <span>Midnight Buildathon Wave 1</span>
+      <span>Midnight Buildathon</span>
     </footer>
 
     <script type="module" src="./main.js"></script>
