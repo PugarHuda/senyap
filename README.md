@@ -202,20 +202,35 @@ The web console runs the same compiled circuits in the browser. Nothing on that 
 
 ### On chain
 
-Senyap is deployed to Midnight preprod.
+Senyap is deployed to Midnight preprod, and a whole RFQ has been run through it.
 
 | | |
 | --- | --- |
-| Contract | `da83d09624374ce3495765795c987aa68512ef47263b17ef9d1cb618883dba77` |
-| Deploy tx | `88f81d49bb21c7918f05c176a353f4bfa7c8014ac6b9730429b089a0e36706d8` |
-| Block | 2,488,541 |
+| Console | <https://senyap.vercel.app> |
+| Contract | `039be0bd3efb108ed649179e0e3b26666a27140bd4bbf64e7d13e813aa9bf3b6` |
+| Fill tx | `ad17396ba677bb56f9c7b58ddd098050edef76f34b704406ba47d13c7e2e0f52`, block 2,497,257 |
+
+`npm run live` drives that contract: the venue publishes the band, three makers
+register and seal a quote each, and the taker fills. Eight transactions, each
+one a real proof against the live ledger. What the chain held afterwards, read
+back from the indexer rather than from the process that wrote it:
+
+```
+quote tree root  52343dfb...0f96
+leaves           4          three sealed quotes, plus the residual
+fills            1
+nullifiers       1
+lastFillPrice    995        maker B, the best of the three
+
+present    995  maker B - won      <- the control
+absent    1010  maker A - lost
+absent    1030  maker C - lost
+```
 
 Confirm it independently, without trusting anything in this repo:
 
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"query":"{contractAction(address:\"da83d09624374ce3495765795c987aa68512ef47263b17ef9d1cb618883dba77\"){__typename address transaction{hash block{height}}}}"}' \
-  https://indexer.preprod.midnight.network/api/v4/graphql
+curl -s -X POST -H 'Content-Type: application/json'   -d '{"query":"{contractAction(address:\"039be0bd3efb108ed649179e0e3b26666a27140bd4bbf64e7d13e813aa9bf3b6\"){__typename address transaction{hash block{height}}}}"}'   https://indexer.preprod.midnight.network/api/v4/graphql
 ```
 
 ### Deploying
@@ -368,16 +383,16 @@ primitives      3   commitment binding, nullifier domain separation, padding pri
 - **The book is three slots.** ZK circuits need fixed bounds. Widening it is a constant, not a redesign.
 - **Settlement is not custody.** Senyap proves a match is valid and binding. It does not move assets. This is a price-discovery layer, not a DEX.
 - **`registerMaker` is open and `tick` is manual.** Both are demo scaffolding, marked in the source. Neither is load-bearing for the privacy claim.
-- **Deployed, but the demo still runs locally.** The contract is on preprod (address below); the CLI demo and the web console still execute the compiled circuits in the local simulator rather than against it.
+- **The console reads the chain but does not write to it.** `npm run live` drives the deployed contract end to end from Node. The hosted console runs the same circuits in the browser against a local simulator and reads the deployed contract's public state; proving from the browser needs a wallet bridge, which is not built.
 
 ## Named deltas for Wave 2
 
 Stated in advance so progress can be measured against them:
 
-1. ~~Deploy to Midnight preprod~~ (done, see above) and wire the demo to the deployed contract — `cli/live.js` is written and drives the deployed contract; it has not completed a run on this machine, which is a memory problem rather than a code one.
+1. ~~Deploy to Midnight preprod and wire the demo to the deployed contract.~~ Done — `npm run live`, eight transactions, see *On chain*.
 2. ~~Replace the `Set` membership check with a `MerkleTree` proof, so losing commitments stay unlinkable at fill time.~~ Done — see *From a Set to a Merkle tree*.
 3. ~~Partial fills via residual commitments.~~ Done — see *Partial fills*.
-4. A taker-facing frontend over the deployed contract. The console exists and runs the real circuits in the browser, but against the local simulator, not preprod.
+4. A taker-facing frontend over the deployed contract. Half done: <https://senyap.vercel.app> runs the real circuits in the browser and reads the deployed contract's state from the indexer, but proving against preprod from the browser needs a wallet bridge.
 
 ## Prior art
 

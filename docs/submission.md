@@ -36,7 +36,26 @@ what makes best execution hard and what makes it worth doing on Midnight.
 | --- | --- |
 | Taker console | https://senyap.vercel.app |
 | Contract (preprod) | `039be0bd3efb108ed649179e0e3b26666a27140bd4bbf64e7d13e813aa9bf3b6` |
+| Fill tx | `ad17396ba677bb56f9c7b58ddd098050edef76f34b704406ba47d13c7e2e0f52`, block 2,497,257 |
 | Repository | *(add before submitting)* |
+
+`npm run live` runs a whole RFQ against that contract — the venue publishes the
+band, three makers register and seal a quote each, the taker fills. Eight
+transactions, each a real proof against the live ledger. What the chain held
+afterwards, read back from the indexer rather than from the process that wrote
+it:
+
+```
+quote tree root  52343dfb...0f96
+leaves           4          three sealed quotes, plus the residual
+fills            1
+nullifiers       1
+lastFillPrice    995        maker B, the best of the three
+
+present    995  maker B - won      <- the control
+absent    1010  maker A - lost
+absent    1030  maker C - lost
+```
 
 The console runs the compiled circuits in the browser. Nothing on that page is
 validated in JavaScript first: when it says REFUSED, that string is the assert
@@ -117,6 +136,24 @@ were.
   public state from the indexer, but proving from the browser against preprod
   needs a wallet bridge, which is next.
 
+## One more bug worth naming
+
+Call transactions never reached the chain, and for five runs it looked like a
+slow network. It was the wallet SDK's dust balancer: a fixed-point loop with no
+iteration cap, which selects coins to cover the fee and then recomputes the fee
+*including the cost of the inputs it just selected*. Coverage is therefore
+always one step behind, and on a call transaction — larger than a deploy,
+because it carries a proof — the fee grows by the cost of each added input and
+the loop never terminates.
+
+It runs through `Effect.runSync`, so it blocks the event loop: no timer fires,
+nothing logs, and a stall is indistinguishable from slowness. Bisecting the
+three sub-balancers found it — unshielded alone finishes in a second and the
+node then rejects the unpaid transaction with `Custom error: 138`; dust alone
+panics in wasm with `unreachable`; together they loop. Asking for more fee
+overhead than needed puts the first selection above the final fee, and the
+fixed point is reached at once.
+
 ## The toolchain, because it cost real time
 
 The compiler you get by default is not the one that deploys. `compact update`
@@ -132,9 +169,8 @@ version — `npm dedupe` does.
 
 ## Next
 
-1. Drive the deployed contract end to end from `cli/live.js` (written; blocked
-   on a non-convergent fee loop in the wallet SDK's dust balancer).
-2. A wallet bridge so the console can prove against preprod, not only read it.
-3. Widen the book past three slots.
-4. Unlinkable residuals, so repeated partial fills of one quote cannot be
+1. A wallet bridge so the console can prove against preprod, not only read it.
+2. Widen the book past three slots.
+3. Unlinkable residuals, so repeated partial fills of one quote cannot be
    chained together by an observer.
+4. Read block time instead of the manual `tick`, and gate `registerMaker`.
