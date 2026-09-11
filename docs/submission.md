@@ -99,8 +99,12 @@ opening from its own records without hearing from the taker. The residual is
 appended even when nothing is left, because a conditional insert would publish
 whether each trade was partial.
 
-**28 tests**, none skipped or stubbed, running the compiled circuits in process.
-Most of them assert refusals.
+**34 tests**, none skipped or stubbed, running the compiled circuits in process.
+Most of them assert refusals, and every assert in the contract has one — all 19
+distinct refusal messages appear in a test that expects them. Three of those
+tests exist because an audit found the guards had no coverage, including the
+leaf binding that stops a taker proving three real quotes exist while its book
+holds something else.
 
 ## Three things we got wrong, and how they were caught
 

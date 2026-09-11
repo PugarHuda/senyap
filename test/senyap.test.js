@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Senyap, emptyPrivateState, padWith, bytes32, pureCircuits, stateDump, leHex,
+import { Senyap, emptyPrivateState, padWith, bytes32, pathFor, pureCircuits, stateDump, leHex,
          termsOf, makerState, residualOf, slotOf, takerState } from '../src/venue.js';
 
 // Public mid is 1000 with a 500 bps band, so a quote is only accepted in
@@ -234,6 +234,31 @@ test('a fabricated competing quote is refused', async () => {
   );
 });
 
+test('a path for one quote cannot vouch for another', async () => {
+  const s = await venue();
+  // The attack the leaf binding exists for. Every path here is genuine and
+  // every root check passes - they are all real quotes in the real tree - but
+  // they are handed to the wrong slots. Without the binding this proves three
+  // live quotes exist while saying nothing about the three in the book.
+  const l = s.ledger();
+  const pathTo = (m) => pathFor(l, pureCircuits.commitmentOf(termsOf(m), m.nonce));
+  const book = takerState(fullBook(), 40n, 1000n, 1n);
+  book.pathsOverride = [pathTo(MAKERS.C), pathTo(MAKERS.A), pathTo(MAKERS.B)];
+
+  await assert.rejects(
+    s.call('takeQuote', book),
+    /slot 0 path is for another quote/,
+  );
+});
+
+test('a chosen index past the end of the book is refused', async () => {
+  const s = await venue();
+  await assert.rejects(
+    s.call('takeQuote', takerState(fullBook(), 40n, 1000n, 7n)),
+    /chosen index out of range/,
+  );
+});
+
 test('a padding slot can never be chosen', async () => {
   const s = await venue();
   await assert.rejects(
@@ -302,12 +327,49 @@ test('a cancelled quote can no longer be filled', async () => {
   );
 });
 
+test('a quote cannot be cancelled twice', async () => {
+  const s = await venue();
+  await s.call('cancelQuote', makerState(MAKERS.A));
+  await assert.rejects(
+    s.call('cancelQuote', makerState(MAKERS.A)),
+    /quote is not live/,
+  );
+});
+
 test('a maker cannot cancel a quote it does not own', async () => {
   const s = await venue();
   const impostor = { ...makerState(MAKERS.B), makerSecret: MAKERS.C.sk };
   await assert.rejects(
     s.call('cancelQuote', impostor),
     /not the maker of this quote/,
+  );
+});
+
+test('a quote with no price or no size is refused', async () => {
+  const s = await venue();
+  await assert.rejects(
+    s.call('postQuote', makerState(MAKERS.A, { price: 0n })),
+    /price must be positive/,
+  );
+  await assert.rejects(
+    s.call('postQuote', makerState(MAKERS.A, { maxSize: 0n })),
+    /size must be positive/,
+  );
+});
+
+test('a quote that is already expired cannot be posted', async () => {
+  const s = await venue();
+  await assert.rejects(
+    s.call('postQuote', makerState(MAKERS.A, { expiry: 0n })),
+    /quote is already expired/,
+  );
+});
+
+test('a reference price of zero is refused', async () => {
+  const s = await Senyap.deploy();
+  await assert.rejects(
+    s.call('setReference', emptyPrivateState(), 0n, BAND),
+    /reference price must be positive/,
   );
 });
 

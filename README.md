@@ -191,7 +191,7 @@ Then:
 ```bash
 npm install
 npm run build   # compact compile src/senyap.compact src/managed/senyap
-npm test        # 28 tests
+npm test        # 34 tests
 npm run demo    # the end-to-end walkthrough
 
 npm run build:web && npm run dev   # the taker console
@@ -390,7 +390,9 @@ an error that never names the missing binary. `sudo apt install -y unzip`.
 
 ## Test coverage
 
-28 tests, all passing, none skipped or stubbed.
+34 tests, all passing, none skipped or stubbed. Every assert in the contract
+has one: the 19 distinct refusal messages in `senyap.compact` all appear in a
+test that expects them.
 
 ```
 happy path      4   deploy, maker registration, quotes seal, best quote fills
@@ -398,10 +400,12 @@ privacy         3   losing prices absent with a positive control; limit
                     indistinguishable; fill size confined to a hiding commitment
 partial fills   4   residual is sellable, cannot be overdrawn, a full fill leaves
                     an unfillable residual, a zero fill is refused
-refusals        8   fade, not-best, over-limit, undersized, expired, double-fill,
-                    fabricated competitor, padding selection
-maker guards    6   unauthorised, out-of-band, wrong maker id, cancel, cancel by
-                    impostor, cancelled quote cannot be filled
+refusals       10   fade, not-best, over-limit, undersized, expired, double-fill,
+                    fabricated competitor, padding selection, a path vouching for
+                    the wrong quote, an index past the end of the book
+maker guards    9   unauthorised, out-of-band, wrong maker id, priceless, sizeless,
+                    already expired, cancel, cancel by impostor, cancel twice
+venue guards    1   a reference price of zero
 primitives      3   commitment binding, nullifier domain separation, padding price
 ```
 

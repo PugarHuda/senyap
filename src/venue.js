@@ -19,7 +19,7 @@ const COIN_PK = { bytes: new Uint8Array(32) };
 // findPathForLeaf returns undefined for a commitment that was never posted. A
 // path built at index 0 instead gives the wrong root, so the circuit refuses it
 // with "not a live on-chain quote" rather than this line throwing.
-const pathFor = (ledger, commitment) =>
+export const pathFor = (ledger, commitment) =>
   ledger.quotes.findPathForLeaf(commitment) ?? ledger.quotes.pathForLeaf(0n, commitment);
 
 export const witnesses = {
@@ -29,11 +29,17 @@ export const witnesses = {
   takerOrder:     (ctx) => [ctx.privateState, ctx.privateState.takerOrder],
   receivedQuotes: (ctx) => [ctx.privateState, ctx.privateState.receivedQuotes],
   chosenIndex:    (ctx) => [ctx.privateState, ctx.privateState.chosenIndex],
+  // pathsOverride is not a convenience. The paths are the one witness a client
+  // computes rather than stores, so a dishonest client is exactly one that
+  // supplies its own - and the circuit binding each path to its slot is what
+  // stops that. Being able to hand over mismatched paths is how that binding
+  // gets tested at all.
   quotePaths:     (ctx) => [
     ctx.privateState,
-    ctx.privateState.receivedQuotes.map((s) =>
-      pathFor(ctx.ledger, pureCircuits.commitmentOf(s.terms, s.nonce)),
-    ),
+    ctx.privateState.pathsOverride ??
+      ctx.privateState.receivedQuotes.map((s) =>
+        pathFor(ctx.ledger, pureCircuits.commitmentOf(s.terms, s.nonce)),
+      ),
   ],
 };
 
