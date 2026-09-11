@@ -1,0 +1,56 @@
+# Compiles the contract from source and runs everything against what came out.
+#
+# The compile step is the point. The committed artifacts under src/managed are
+# what the tests, the demo and the browser all load, and nothing else checks
+# that they still match src/senyap.compact. A contract edit that was never
+# recompiled would otherwise pass every test in this repo.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `compact update` installs the newest compiler, which emits a runtime the
+      # deploy path cannot speak. 0.31.1 is the version this project is pinned
+      # to, and build.sh pins it again; both have to agree.
+      - name: Install the Compact toolchain
+        run: |
+          sudo apt-get update && sudo apt-get install -y unzip
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - run: npm ci
+
+      # A second physical copy of onchain-runtime-v3 is a second wasm module and
+      # a second StateValue class, and values built by one fail instanceof in the
+      # other. npm keeps two even when overrides pin one version.
+      - name: One wasm runtime, not two
+        run: |
+          count=$(find node_modules -type d -name onchain-runtime-v3 | wc -l)
+          echo "onchain-runtime-v3 copies: $count"
+          test "$count" -eq 1
+
+      - name: Compile the contract
+        run: npm run build
+
+      - name: The committed artifacts match the source
+        run: git diff --exit-code --stat src/managed
+
+      - run: npm test
+
+      - run: npm run demo
+
+      - run: npm run build:web

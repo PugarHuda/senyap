@@ -1,0 +1,591 @@
+{
+  "compiler-version": "0.31.1",
+  "language-version": "0.23.0",
+  "runtime-version": "0.16.0",
+  "circuits": [
+    {
+      "name": "makerIdOf",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "sk",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "commitmentOf",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "t",
+          "type": {
+            "type-name": "Struct",
+            "name": "QuoteTerms",
+            "elements": [
+              {
+                "name": "price",
+                "type": {
+                  "type-name": "Uint",
+                  "maxval": 18446744073709551615
+                }
+              },
+              {
+                "name": "maxSize",
+                "type": {
+                  "type-name": "Uint",
+                  "maxval": 18446744073709551615
+                }
+              },
+              {
+                "name": "expiry",
+                "type": {
+                  "type-name": "Uint",
+                  "maxval": 18446744073709551615
+                }
+              },
+              {
+                "name": "makerId",
+                "type": {
+                  "type-name": "Bytes",
+                  "length": 32
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "nonce",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "nullifierOf",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "c",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "residualNonceOf",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "nonce",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "effectivePrice",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "s",
+          "type": {
+            "type-name": "Struct",
+            "name": "QuoteSlot",
+            "elements": [
+              {
+                "name": "terms",
+                "type": {
+                  "type-name": "Struct",
+                  "name": "QuoteTerms",
+                  "elements": [
+                    {
+                      "name": "price",
+                      "type": {
+                        "type-name": "Uint",
+                        "maxval": 18446744073709551615
+                      }
+                    },
+                    {
+                      "name": "maxSize",
+                      "type": {
+                        "type-name": "Uint",
+                        "maxval": 18446744073709551615
+                      }
+                    },
+                    {
+                      "name": "expiry",
+                      "type": {
+                        "type-name": "Uint",
+                        "maxval": 18446744073709551615
+                      }
+                    },
+                    {
+                      "name": "makerId",
+                      "type": {
+                        "type-name": "Bytes",
+                        "length": 32
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "nonce",
+                "type": {
+                  "type-name": "Bytes",
+                  "length": 32
+                }
+              },
+              {
+                "name": "live",
+                "type": {
+                  "type-name": "Boolean"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "min2",
+      "pure": true,
+      "proof": false,
+      "arguments": [
+        {
+          "name": "a",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "b",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "registerMaker",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "id",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "tick",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "setReference",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+        {
+          "name": "price",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        },
+        {
+          "name": "band",
+          "type": {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        }
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "postQuote",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "takeQuote",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    },
+    {
+      "name": "cancelQuote",
+      "pure": false,
+      "proof": true,
+      "arguments": [
+      ],
+      "result-type": {
+        "type-name": "Tuple",
+        "types": [
+        ]
+      }
+    }
+  ],
+  "witnesses": [
+    {
+      "name": "makerSecret",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "quoteToPost",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Struct",
+        "name": "QuoteTerms",
+        "elements": [
+          {
+            "name": "price",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 18446744073709551615
+            }
+          },
+          {
+            "name": "maxSize",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 18446744073709551615
+            }
+          },
+          {
+            "name": "expiry",
+            "type": {
+              "type-name": "Uint",
+              "maxval": 18446744073709551615
+            }
+          },
+          {
+            "name": "makerId",
+            "type": {
+              "type-name": "Bytes",
+              "length": 32
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "quoteNonce",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "takerOrder",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Tuple",
+        "types": [
+          {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          },
+          {
+            "type-name": "Uint",
+            "maxval": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "receivedQuotes",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Vector",
+        "length": 3,
+        "type": {
+          "type-name": "Struct",
+          "name": "QuoteSlot",
+          "elements": [
+            {
+              "name": "terms",
+              "type": {
+                "type-name": "Struct",
+                "name": "QuoteTerms",
+                "elements": [
+                  {
+                    "name": "price",
+                    "type": {
+                      "type-name": "Uint",
+                      "maxval": 18446744073709551615
+                    }
+                  },
+                  {
+                    "name": "maxSize",
+                    "type": {
+                      "type-name": "Uint",
+                      "maxval": 18446744073709551615
+                    }
+                  },
+                  {
+                    "name": "expiry",
+                    "type": {
+                      "type-name": "Uint",
+                      "maxval": 18446744073709551615
+                    }
+                  },
+                  {
+                    "name": "makerId",
+                    "type": {
+                      "type-name": "Bytes",
+                      "length": 32
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "nonce",
+              "type": {
+                "type-name": "Bytes",
+                "length": 32
+              }
+            },
+            {
+              "name": "live",
+              "type": {
+                "type-name": "Boolean"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "chosenIndex",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Uint",
+        "maxval": 255
+      }
+    },
+    {
+      "name": "quotePaths",
+      "arguments": [
+      ],
+      "result type": {
+        "type-name": "Vector",
+        "length": 3,
+        "type": {
+          "type-name": "Struct",
+          "name": "MerkleTreePath",
+          "elements": [
+            {
+              "name": "leaf",
+              "type": {
+                "type-name": "Bytes",
+                "length": 32
+              }
+            },
+            {
+              "name": "path",
+              "type": {
+                "type-name": "Vector",
+                "length": 10,
+                "type": {
+                  "type-name": "Struct",
+                  "name": "MerkleTreePathEntry",
+                  "elements": [
+                    {
+                      "name": "sibling",
+                      "type": {
+                        "type-name": "Struct",
+                        "name": "MerkleTreeDigest",
+                        "elements": [
+                          {
+                            "name": "field",
+                            "type": {
+                              "type-name": "Field"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "goes_left",
+                      "type": {
+                        "type-name": "Boolean"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "contracts": [
+  ],
+  "ledger": [
+    {
+      "name": "makers",
+      "index": 0,
+      "exported": true,
+      "storage": "Set",
+      "type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "quotes",
+      "index": 1,
+      "exported": true,
+      "storage": "HistoricMerkleTree",
+      "depth": 10,
+      "type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "spent",
+      "index": 2,
+      "exported": true,
+      "storage": "Set",
+      "type": {
+        "type-name": "Bytes",
+        "length": 32
+      }
+    },
+    {
+      "name": "fills",
+      "index": 3,
+      "exported": true,
+      "storage": "Counter"
+    },
+    {
+      "name": "referencePrice",
+      "index": 4,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "bandBps",
+      "index": 5,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "lastFillPrice",
+      "index": 6,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    },
+    {
+      "name": "epoch",
+      "index": 7,
+      "exported": true,
+      "storage": "Cell",
+      "type": {
+        "type-name": "Uint",
+        "maxval": 18446744073709551615
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 node_modules/
-src/managed/
+src/managed/senyap/keys/
 *.log
 .env
 .wallet/
