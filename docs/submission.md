@@ -1,7 +1,7 @@
 # Senyap — submission text
 
-**Tagline:** Sealed-quote RFQ on Midnight. Makers post quotes the chain cannot
-read; takers prove they filled the best one.
+**Tagline:** Sealed-quote RFQ and private OTC on Midnight. Makers post quotes
+the chain cannot read; takers prove they filled the best one.
 
 **Categories:** Market Infrastructure · DeFi · Privacy
 
@@ -19,6 +19,12 @@ not binding.
 Senyap makes a quote a cryptographic commitment. A commitment binds the maker,
 so the price cannot change after acceptance. A commitment reveals nothing, so
 losing quotes stay sealed forever.
+
+This is the OTC shape. Block trades are negotiated off-book precisely because
+putting them on one moves the price against you, and the settled trade is the
+only part anyone else is entitled to see. Senyap keeps the negotiation sealed
+and the print public — with the maker's quote made binding, which chat windows
+never managed.
 
 What the taker proves, in circuit: every quote in its book is under the
 on-chain quote tree; the one it consumed has the best price among them; that
@@ -135,6 +141,20 @@ were.
 - **The console runs the circuits locally.** It reads the deployed contract's
   public state from the indexer, but proving from the browser against preprod
   needs a wallet bridge, which is next.
+
+## Two contracts we lost
+
+`deployContract` writes private state only *after* the deploy transaction has
+succeeded on chain. A private-state store that rejects its password therefore
+throws once the contract already exists — and the address goes with the
+exception. That happened twice before the password was right: once because it
+read an environment variable the seed does not live in, once because the raw
+hex seed is two character classes where the store wants three.
+
+So there are two orphaned Senyap contracts on preprod that nothing references.
+Harmless, untidy, and worth saying out loud. The deploy now proves the store
+works with a write and a delete before it submits anything, while failing is
+still free.
 
 ## One more bug worth naming
 

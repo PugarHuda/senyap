@@ -90,7 +90,20 @@ try {
   console.log(`  attack        ${verdict}  ${reason}`);
   if (verdict !== 'REFUSED') fail.push(`fabricated quote was ${verdict}, expected REFUSED`);
 
-  if (!target) {
+  // The live panel talks to the real indexer, so it only means anything when
+  // the page is the deployed one. Reading the chain from a browser is half of
+  // what a taker console has to do, and it was shipped untested once already.
+  if (target) {
+    await page.click('#lRefresh');
+    await page.waitForFunction(
+      () => document.getElementById('lRefresh').textContent === 'read the chain',
+      { timeout: 90_000 },
+    );
+    const leaves = await page.$eval('#lLeaves', (n) => n.textContent);
+    const print = await page.$eval('#lPrint', (n) => n.textContent);
+    console.log(`  live          ${leaves} leaves on chain, last print ${print}`);
+    if (leaves === '—') fail.push('the live panel could not read the deployed contract');
+  } else {
     await page.screenshot({ path: 'docs/screenshot.png', fullPage: true });
     console.log('  screenshot    docs/screenshot.png');
   }

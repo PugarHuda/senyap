@@ -1,6 +1,8 @@
 # Senyap
 
-**Sealed-quote RFQ on Midnight.** Makers post quotes the chain cannot read. Takers prove they filled the best one. Losing prices are never published, and a quote that has been committed cannot be walked back.
+**Sealed-quote RFQ and private OTC on Midnight.** Makers post quotes the chain cannot read. Takers prove they filled the best one. Losing prices are never published, and a quote that has been committed cannot be walked back.
+
+OTC is the market this is for. Block trades are negotiated off-book precisely because putting them on one moves the price against you, and the settled trade is the only part anyone else is entitled to see. Senyap keeps the negotiation sealed and the print public, which is the shape an OTC desk already works in — with the maker's quote made binding, which chat windows never managed.
 
 *Senyap* is Indonesian for hushed — the sound a market makes when nobody can hear your order.
 
@@ -245,6 +247,11 @@ and takes everything else from the environment:
 | `MIDNIGHT_INDEXER` | `https://indexer.preprod.midnight.network/api/v4/graphql` |
 | `MIDNIGHT_NODE` | `wss://rpc.preprod.midnight.network` |
 | `MIDNIGHT_PROOF_SERVER` | `http://127.0.0.1:6300` |
+| `MIDNIGHT_SYNC_TIMEOUT_MS` | `7200000` — a cold sync is long |
+| `MIDNIGHT_STEP_TIMEOUT_MS` | `300000` — per phase, so a wait becomes an error |
+| `MIDNIGHT_FEE_MARGIN` | `1` — blocks of fee margin |
+| `MIDNIGHT_FEE_OVERHEAD` | `1000000000000` — see *A balancer that never converges* |
+| `MIDNIGHT_BALANCE_KINDS` | `unshielded,dust` — which sub-wallets balance; for bisecting |
 
 Three things have to be true before it can work, and none of them are code.
 
@@ -296,6 +303,27 @@ one. Restarting is the design, not a workaround.
 
 Nothing is balanced until all three are complete: a half-synced wallet picks
 coins that were already spent.
+
+#### A balancer that never converges
+
+Call transactions would not reach the chain, and for five runs it looked exactly
+like a slow network. It was the wallet SDK's dust balancer: a fixed-point loop
+with no iteration cap, which selects coins to cover the fee and then recomputes
+the fee *including the cost of the inputs it just selected*. Coverage is always
+one step behind, and on a call transaction — larger than a deploy, because it
+carries a proof — the fee grows by the cost of each added input, so the loop
+never terminates.
+
+It runs through `Effect.runSync`, so it blocks the event loop. No timer fires,
+nothing logs, and a stall is indistinguishable from slowness; the per-phase
+deadline added for exactly this could never have caught it.
+
+Bisecting the three sub-balancers found it, and each fails differently:
+unshielded alone finishes in a second and the node then rejects the unpaid
+transaction with `Custom error: 138`; dust alone panics inside wasm with
+`unreachable`; together they loop. `additionalFeeOverhead` puts the first
+selection above the final fee, so the fixed point is reached immediately. That
+is what `MIDNIGHT_FEE_OVERHEAD` sets.
 
 Two things in `cli/deploy.js` are not the documented way to do it, and both are
 there because the documented way does not work.
