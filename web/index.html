@@ -47,6 +47,19 @@
         </dl>
       </section>
 
+      <section class="panel live">
+        <h2><span class="dot"></span>The same contract, on preprod <em>not this browser</em></h2>
+        <p class="note">Everything above runs the circuits locally. This panel asks the public indexer what the deployed contract actually holds — no wallet, because reading is not a transaction.</p>
+        <p class="note" id="liveAddr">—</p>
+        <dl class="stats">
+          <div><dt>tree root</dt><dd id="lRoot">—</dd></div>
+          <div><dt>leaves</dt><dd id="lLeaves">—</dd></div>
+          <div><dt>fills</dt><dd id="lFills">—</dd></div>
+          <div class="print"><dt>last print</dt><dd id="lPrint">—</dd></div>
+        </dl>
+        <button id="lRefresh">read the chain</button>
+      </section>
+
       <section class="panel attacks">
         <h2><span class="dot"></span>Try to cheat it <em>the refusals are the product</em></h2>
         <p class="note">Each button runs the real circuit. None of them is checked in JavaScript — the contract refuses them.</p>

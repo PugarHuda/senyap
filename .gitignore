@@ -4,3 +4,6 @@ src/managed/
 .env
 .wallet/
 midnight-level-db/
+
+.vercel
+.env*

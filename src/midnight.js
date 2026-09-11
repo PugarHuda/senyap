@@ -68,6 +68,11 @@ export const step = (msg) => console.log(`  ${new Date().toISOString().slice(11,
 // coin, a sub-wallet waiting on a socket that closed. Silence then reads as
 // slowness, and the only way to tell them apart is to make waiting an error.
 const DEADLINE_MS = Number(process.env.MIDNIGHT_STEP_TIMEOUT_MS ?? 300_000);
+
+// Which sub-wallets get asked to balance. An override because the three of them
+// fail in three different ways and bisecting them is the only way to find out
+// which one is at fault on a given transaction.
+const BALANCE_KINDS = (process.env.MIDNIGHT_BALANCE_KINDS ?? 'unshielded,dust').split(',');
 const deadline = (promise, what, ms = DEADLINE_MS) =>
   Promise.race([
     promise,
@@ -211,7 +216,24 @@ const startWallet = async ({ shieldedSecretKeys, dustSecretKey, unshieldedKeysto
     // memory: the in-memory store accumulates an entry per applied event, and
     // preprod is 1.5M events deep. That is what was killing balancing.
     txHistoryStorage: new NoOpTransactionHistoryStorage(),
-    costParameters: { feeBlocksMargin: 10 },
+    // The dust balancer is a fixed-point loop with no iteration cap: it picks
+    // coins to cover the fee, then recomputes the fee including the cost of the
+    // inputs it just picked. Ask for a fat margin and a call transaction - which
+    // carries a proof, so it is large - needs enough small dust coins that each
+    // new input costs more than it contributes, and the loop never converges.
+    // It does not hang in any observable way either, because it runs
+    // synchronously through Effect.runSync: the event loop stops, so no timer
+    // fires and nothing is logged.
+    costParameters: {
+      feeBlocksMargin: Number(process.env.MIDNIGHT_FEE_MARGIN ?? 1),
+      // The overhead is what makes the dust balancer terminate. Its loop only
+      // stops when the coins it selected cover the fee it then recomputes - but
+      // it selects them to cover the *previous* fee, so coverage is always one
+      // step behind, and on a call transaction the fee keeps growing by the
+      // cost of the input just added. Over-asking up front puts the first
+      // selection above the final fee, and the fixed point is reached at once.
+      additionalFeeOverhead: BigInt(process.env.MIDNIGHT_FEE_OVERHEAD ?? 1_000_000_000_000n),
+    },
   };
 
   const cache = loadCache();
@@ -331,7 +353,7 @@ class FacadeProvider {
       this.facade.balanceUnboundTransaction(
         tx,
         { shieldedSecretKeys, dustSecretKey },
-        { ttl, tokenKindsToBalance: ['unshielded', 'dust'] },
+        { ttl, tokenKindsToBalance: BALANCE_KINDS },
       ),
       'balancing',
     );

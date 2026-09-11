@@ -7,6 +7,7 @@ import {
   Senyap, emptyPrivateState, bytes32, pureCircuits,
   makerState, slotOf, takerState,
 } from '../src/venue.js';
+import { explorerNote, readLive } from './live.js';
 
 const MID = 1000n, BAND = 500n, EXPIRY = 10n;
 
@@ -171,6 +172,33 @@ try {
     const limit = BigInt($('limit').value || '0');
     return run('filling the best quote', () =>
       venue.call('takeQuote', takerState(book(), size, limit, bestIndex())));
+  });
+
+  // The live panel is deliberately independent of everything above it: if the
+  // deployed contract is stale or the indexer is down, the local console still
+  // works and the panel says why it cannot show anything.
+  $('liveAddr').textContent = explorerNote;
+  $('lRefresh').addEventListener('click', async () => {
+    $('lRefresh').disabled = true;
+    $('lRefresh').textContent = 'reading…';
+    try {
+      const live = await readLive();
+      if (!live.ok) {
+        $('liveAddr').textContent = live.reason;
+        for (const id of ['lRoot', 'lLeaves', 'lFills', 'lPrint']) $(id).textContent = '—';
+      } else {
+        $('liveAddr').textContent = explorerNote;
+        $('lRoot').textContent = `${live.root.slice(0, 10)}…${live.root.slice(-6)}`;
+        $('lLeaves').textContent = live.leaves;
+        $('lFills').textContent = live.fills;
+        $('lPrint').textContent = live.lastFillPrice === 0n ? '—' : live.lastFillPrice;
+      }
+    } catch (e) {
+      $('liveAddr').textContent = `could not reach the indexer: ${e.message ?? e}`;
+    } finally {
+      $('lRefresh').disabled = false;
+      $('lRefresh').textContent = 'read the chain';
+    }
   });
 
   $('attacks').replaceChildren(...ATTACKS.map((a) => {

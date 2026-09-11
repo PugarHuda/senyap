@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Senyap — sealed-quote RFQ on Midnight</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌙</text></svg>" />
-    <script type="module" crossorigin src="/assets/index-DlVkKhXH.js"></script>
+    <script type="module" crossorigin src="/assets/index-CG7I3eei.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-Cz0BwoHD.css">
   </head>
   <body>
@@ -46,6 +46,19 @@
           <div><dt>nullifiers</dt><dd id="sSpent">—</dd></div>
           <div class="print"><dt>last print</dt><dd id="sPrint">—</dd></div>
         </dl>
+      </section>
+
+      <section class="panel live">
+        <h2><span class="dot"></span>The same contract, on preprod <em>not this browser</em></h2>
+        <p class="note">Everything above runs the circuits locally. This panel asks the public indexer what the deployed contract actually holds — no wallet, because reading is not a transaction.</p>
+        <p class="note" id="liveAddr">—</p>
+        <dl class="stats">
+          <div><dt>tree root</dt><dd id="lRoot">—</dd></div>
+          <div><dt>leaves</dt><dd id="lLeaves">—</dd></div>
+          <div><dt>fills</dt><dd id="lFills">—</dd></div>
+          <div class="print"><dt>last print</dt><dd id="lPrint">—</dd></div>
+        </dl>
+        <button id="lRefresh">read the chain</button>
       </section>
 
       <section class="panel attacks">

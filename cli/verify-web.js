@@ -4,6 +4,9 @@
 // loads the page, fills, attacks, and fails loudly on any console error.
 //
 //   npm run build && npm run build:web && npm run verify:web
+//
+// Pass a URL to run the same assertions against a deployed site instead of a
+// local preview: npm run verify:web -- https://senyap.vercel.app
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
@@ -17,15 +20,18 @@ const root = fileURLToPath(new URL('..', import.meta.url));  // the repo path ha
 // the shell form starts a cmd.exe that owns vite, so server.kill() reaps the
 // shell and leaves vite holding the port - the script then hangs on exit and the
 // next run silently tests against the stale server.
-const server = spawn(process.execPath, [
-  fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)),
-  'preview', '--port', '4173', '--strictPort',
-], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+const target = process.argv[2];
+const server = target
+  ? null
+  : spawn(process.execPath, [
+      fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)),
+      'preview', '--port', '4173', '--strictPort',
+    ], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
 
 // We fix the port, so wait for it to answer rather than scraping the banner -
 // vite wraps the port number in ANSI colour codes and a URL regex misses it.
-const url = 'http://localhost:4173';
-server.stderr.on('data', (d) => process.stderr.write(d));
+const url = target ?? 'http://localhost:4173';
+server?.stderr.on('data', (d) => process.stderr.write(d));
 
 const ready = await (async () => {
   for (let i = 0; i < 60; i++) {
@@ -38,9 +44,10 @@ const ready = await (async () => {
   return false;
 })();
 if (!ready) {
-  server.kill();
-  throw new Error(`vite preview never answered on ${url}`);
+  server?.kill();
+  throw new Error(`nothing answered on ${url}`);
 }
+console.log(`  target        ${url}`);
 
 const fail = [];
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
@@ -83,11 +90,13 @@ try {
   console.log(`  attack        ${verdict}  ${reason}`);
   if (verdict !== 'REFUSED') fail.push(`fabricated quote was ${verdict}, expected REFUSED`);
 
-  await page.screenshot({ path: 'docs/screenshot.png', fullPage: true });
-  console.log('  screenshot    docs/screenshot.png');
+  if (!target) {
+    await page.screenshot({ path: 'docs/screenshot.png', fullPage: true });
+    console.log('  screenshot    docs/screenshot.png');
+  }
 } finally {
   await browser.close();
-  server.kill();
+  server?.kill();
 }
 
 if (fail.length) {
